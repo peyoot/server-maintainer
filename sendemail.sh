@@ -7,4 +7,5 @@ smtpserver='smtp.company.com'
 to=$1
 subject=$2
 content=$3
-sendemail -f $account -t $to -s $smtpserver -u $subject -o message-content-type=html -o message-charset=utf8 -xu $account -xp $password -m $content
+sendemail -f $account -t $to -s $smtpserver -u $subject -o message-content-type=html -o message-charset=utf8 -o message-file=$content -xu $account -xp $password
+
