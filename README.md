@@ -3,7 +3,7 @@
 # server maintainer will use sendemail and 3rd party SMTP to send alarm email ##########  
 # The script is suitable for you  if you use cloud vps or personal server like me . #####  
 # You may need to change some parameters to cater for your hardware conditions/personal account ####  
-Please put sendemail.sh into excutable search PATH, for example /usb/bin
+Please put sendemail.sh into excutable search PATH, for example /usb/local/bin
 chmod a+x sendemail.sh
 
 to be continued...

@@ -18,14 +18,9 @@ fi
 if [ $(echo "$cpuusage > 0.7"|bc) -eq 1 ]; then
   echo "CPU Alarm: reach 70% utilization" >> $ALARMBODY
 fi
-#### database backup####
-#echo script log to message for email report
-#put database backup here
 
+####Email notification header
 
-
-
-#####
 SUBJECT="$DATE Server $(hostname) maintainer report"
 MESSAGE="/tmp/Mail.out"
 TO="peyoot@hotmail.com"
@@ -33,10 +28,14 @@ echo "$ALARMBODY" >> $MESSAGE
 echo "" >> $MESSAGE
 echo "------------------------------------------------------------------" >> $MESSAGE
 
-/usr/bin/sendemail.sh "$TO" "$SUBJECT" ""$MESSAGE""
-rm /tmp/Mail.out
 
+#### database backup####
+#echo script log to message for email report
+#put database backup here
 #######每周备份，内容生成到/var/log/weekly.report中#######
+
+
+
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 cd $SCRIPTPATH
 mkdir -p backups/$DATE
@@ -57,7 +56,17 @@ if [ $? = 0 ]; then
   if [ -f backups/$DATE.tgz ]; then
     rm -fr backups/$DATE
     find $SCRIPTPATH/backups/ -name "*.tgz" -mtime +7 -delete
-  fi 
+  fi
+  echo "wekan-db is backuped" >> $MESSAGE
 else
   echo "wekan-db container is not running" >> $MESSAGE
 fi
+
+
+
+
+
+##### call sendemail
+
+/usr/local/bin/sendemail.sh "$TO" "$SUBJECT" < $MESSAGE
+rm /tmp/Mail.out
