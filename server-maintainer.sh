@@ -67,7 +67,7 @@ else
 fi
 
 #pack all data to the day's backup package, and delete old backup(7days before)
-tar -zc -f backups/$DATE.tgz -C $SCRIPTPATH/backups/$DATE wekan
+tar -zc -f backups/$DATE.tgz backups/$DATE
 if [ -f backups/$DATE.tgz ]; then
   rm -fr backups/$DATE
   find $SCRIPTPATH/backups/ -name "*.tgz" -mtime +7 -delete
