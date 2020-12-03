@@ -45,25 +45,34 @@ mkdir -p backups/$DATE
 
 
 #backup docker mysql5
+docker ps | grep 'mysql5' &> /dev/null
+if [ $? ]; then
+  docker exec -t wekan-db bash -c "rm -fr /dump ; mkdir /dump ; mysqldump -h 127.0.0.1 -u root -ppassword ecceedoc > /dump/ecceedoc-${DATE}.sql"
+  docker cp mysql5:/dump/. $SCRIPTPATH/backups/$DATE 
+  echo "mysql5 database: ecceedoc have been successfully exported" >> $MESSAGE
+else
+  echo "container mysql5 in not running,backup fail <br />" >> $MESSAGE
 
+fi
 
 #backup docker wenkan-db postgresql
-docker ps -a | grep 'wekan-db' &> /dev/null
+docker ps | grep 'wekan-db' &> /dev/null
 if [ $? = 0 ]; then
   docker exec -t wekan-db bash -c "rm -fr /dump ; mkdir /dump ; mongodump -o /dump/"
 #  docker cp wekan-db:/dump $SCRIPTPATH/backups/$DATE
   cp -r /home/robin/docker/wekan/wekan-db-dump/. $SCRIPTPATH/backups/$DATE
-  tar -zc -f backups/$DATE.tgz -C $SCRIPTPATH/backups/$DATE wekan
-  if [ -f backups/$DATE.tgz ]; then
-    rm -fr backups/$DATE
-    find $SCRIPTPATH/backups/ -name "*.tgz" -mtime +7 -delete
-  fi
   echo "wekan-db is backuped <br />" >> $MESSAGE
 else
   echo "wekan-db container is not running, backup fail <br />" >> $MESSAGE
 fi
 
-
+#pack all data to the day's backup package, and delete old backup(7days before)
+tar -zc -f backups/$DATE.tgz -C $SCRIPTPATH/backups/$DATE wekan
+if [ -f backups/$DATE.tgz ]; then
+  rm -fr backups/$DATE
+  find $SCRIPTPATH/backups/ -name "*.tgz" -mtime +7 -delete
+fi
+echo "all availabe backup have been packed" >> $MESSAGE
 
 
 
