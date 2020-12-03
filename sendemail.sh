@@ -1,9 +1,9 @@
 #!/bin/bash
 #script name : sendemail.sh
 #usage: sendemail.sh receiver@email.com "subject" "body"
-account='noreply@company.com'
-password='your password'
-smtpserver='smtp.company.com'
+account='noreply@eccee.com'
+password='kissme123'
+smtpserver='smtp.ym.163.com'
 to=$1
 subject=$2
 content=$3

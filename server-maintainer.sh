@@ -51,7 +51,8 @@ mkdir -p backups/$DATE
 docker ps -a | grep 'wekan-db' &> /dev/null
 if [ $? = 0 ]; then
   docker exec -t wekan-db bash -c "rm -fr /dump ; mkdir /dump ; mongodump -o /dump/"
-  docker cp wekan-db:/dump $SCRIPTPATH/backups/$DATE
+#  docker cp wekan-db:/dump $SCRIPTPATH/backups/$DATE
+  cp -r /home/robin/docker/wekan/wekan-db-dump/. $SCRIPTPATH/backups/$DATE
   tar -zc -f backups/$DATE.tgz -C $SCRIPTPATH/backups/$DATE wekan
   if [ -f backups/$DATE.tgz ]; then
     rm -fr backups/$DATE
