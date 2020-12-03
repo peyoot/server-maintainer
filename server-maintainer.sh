@@ -47,7 +47,7 @@ mkdir -p backups/$DATE
 #backup docker mysql5
 docker ps | grep 'mysql5' &> /dev/null
 if [ $? ]; then
-  docker exec -t wekan-db bash -c "rm -fr /dump ; mkdir /dump ; mysqldump -h 127.0.0.1 -u root -ppassword ecceedoc > /dump/ecceedoc-${DATE}.sql"
+  docker exec -t mysql5 bash -c "rm -fr /dump ; mkdir /dump ; mysqldump -h 127.0.0.1 -u root -ppassword eccee_doc > /dump/ecceedoc-${DATE}.sql"
   docker cp mysql5:/dump/. $SCRIPTPATH/backups/$DATE 
   echo "mysql5 database: ecceedoc have been successfully exported" >> $MESSAGE
 else
