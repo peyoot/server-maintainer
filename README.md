@@ -6,5 +6,14 @@
 Please put sendemail.sh into excutable search PATH, for example /usb/local/bin
 chmod a+x sendemail.sh
 
-to be continued...
+You can put the scripts in some places like : /root/tools/
+
+mysql and mongodb use docker container
+
+change your database name as you wish, change password according to your server configuration.
+
+you can manually run it. or you can put it into crontab.
+
+
+enjoy it and good luck!
 

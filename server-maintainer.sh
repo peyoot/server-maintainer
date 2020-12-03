@@ -42,6 +42,15 @@ mkdir -p backups/$DATE
 
 #backup code here
 #backup docker mysql8
+docker ps | grep 'mysql' &> /dev/null
+if [ $? ]; then
+  docker exec -t mysql bash -c "rm -fr /dump ; mkdir /dump ; mysqldump -h 127.0.0.1 -u root -ppassword eccee > /dump/eccee-${DATE}.sql"
+  docker cp mysql:/dump/. $SCRIPTPATH/backups/$DATE
+  echo "mysql database: eccee have been successfully exported" >> $MESSAGE
+else
+  echo "container mysql in not running,backup fail <br />" >> $MESSAGE
+
+fi
 
 
 #backup docker mysql5
