@@ -2,7 +2,95 @@
 ## To use this script, please put sendemail.sh in /usr/bin
 ## any issue please report to peyoot#hotmail.com 
 ## check if bc package have been installed, if not simply sudo apt install bc
-##
+## your need to chage necessary parameters in env.example file and save as .env
+
+has_root() {
+    if [[ $EUID -ne 0 ]]; then
+        echo "you need root privilege to run the script" 1>&2
+		exit 1
+    fi
+}
+has_root
+
+####BLOCK1: check the availability of necessary packages and install missing dependencies####
+#check os
+OS_RELEASE=$(awk -F= '/^NAME/{gsub(/"/, "", $2);print $2}' /etc/os-release)
+if [[ "$OS_RELEASE" =~ "Ubuntu" ]] || [[ "OS_REALSE" =~ "Debian" ]]; then
+  PACKAGE_UPDATE="sudo apt update"
+  PACKAGE_INSTALL_BASE="sudo apt install -y "
+elif [[ "OS_RELEASE" =~ "openEuler" ]] || [[ "OS_RELEASE" =~ "openEuler" ]]; then
+  PACKAGE_UPDATE="sudo dnf check-update"
+  PACKAGE_INSTALL_BASE="sudo dnf install -y "
+else
+  echo "This distribution haven't been test yet"
+  exit
+fi
+
+ 
+if [ ! -e /usr/bin/sshpass ]; then
+  PACKAGE_INSTALL=${PACKAGE_INSTALL_BASE}."sshpass"
+  eval ${PACKAGE_UPDATE}
+  eval ${PACKAGE_INSTALL}
+fi
+
+
+
+#check jq
+if [ ! -e /usr/bin/sendemail ]; then
+  sudo apt update
+  sudo apt install jq -y
+fi
+
+####End of BLOCK1####
+
+
+####BLOCK2: This block read .env file and use variables in it ####
+FILENAME=.env
+#ops_abort=0
+echo "verify .env file"
+test -e ${FILENAME} || exit
+mapfile -t variables < <(grep -vE '^#|^$' ${FILENAME})
+arr_length=${#variables[@]}
+if ((arr_length < 3)); then
+  echo "bad environment file.Abort"
+  exit
+fi
+
+#echo "Check if env include key variables"
+if [[ ! ${variables[@]} =~ "BK_SERVER1_IP" ]]; then
+  echo "missing key variables. Abort"
+  exit
+fi
+if [[ ! ${variables[@]} =~ "BK_SERVER1_USRNAME" ]]; then
+  echo "missing key variables. Abort"
+  exit
+fi
+if [[ ! ${variables[@]} =~ "BK_SERVER1_PASSWORD" ]]; then
+  echo "missing key variables. Abort"
+  exit
+fi
+if [[ ! ${variables[@]} =~ "SMTP_SERVER" ]]; then
+  echo "missing key variables. Abort"
+  exit
+fi
+if [[ ! ${variables[@]} =~ "SMTP_ACCOUNT" ]]; then
+  echo "missing key variables. Abort"
+  exit
+fi
+if [[ ! ${variables[@]} =~ "SMTP_PASSWORD" ]]; then
+  echo "missing key variables. Abort"
+  exit
+fi
+
+printf "total %s variables in env file and they are:\n" $arr_length
+echo "${variables[@]}"
+
+echo "use mapfile to define var"
+for v in "${variables[@]}"; do 
+  eval ${v}
+done
+####End of BLOCK2####
+
 
 DATE=$(date +%Y-%m-%d-%H-%M)
 ramusage=$(free | awk '/Mem/{printf("RAM Usage: %.2f\n"), $3/$2*100}'| awk '{print $3}')
