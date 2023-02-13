@@ -26,20 +26,16 @@ else
   exit
 fi
 
- 
-if [ ! -e /usr/bin/sshpass ]; then
-  PACKAGE_INSTALL=${PACKAGE_INSTALL_BASE}."sshpass"
-  eval ${PACKAGE_UPDATE}
-  eval ${PACKAGE_INSTALL}
-fi
+eval ${PACKAGE_UPDATE}
 
+additional_packages=("sshpass" "jq" "expect")
+for pack_str in ${additional_packages[@]}; do
+  if [ ! -e /usr/bin/${pack_str} ]; then
+    PACKAGE_INSTALL=${PACKAGE_INSTALL_BASE}${pack_str}
+    eval ${PACKAGE_INSTALL}
+  fi
+done
 
-
-#check jq
-if [ ! -e /usr/bin/sendemail ]; then
-  sudo apt update
-  sudo apt install jq -y
-fi
 
 ####End of BLOCK1####
 
