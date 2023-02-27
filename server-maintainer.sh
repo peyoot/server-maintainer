@@ -29,7 +29,7 @@ fi
 
 eval ${PACKAGE_UPDATE}
 
-additional_packages=("sshpass" "jq" "expect")
+additional_packages=("sshpass" "jq" "sendemail")
 for pack_str in ${additional_packages[@]}; do
   if [ ! -e /usr/bin/${pack_str} ]; then
     PACKAGE_INSTALL=${PACKAGE_INSTALL_BASE}${pack_str}
@@ -45,7 +45,11 @@ done
 FILENAME=.env
 #ops_abort=0
 echo "verify .env file"
-test -e ${FILENAME} || exit
+if [[ ! -f ${FILENAME} ]]; then
+  echo "couldn't find env file in current folder,abort!"
+  exit
+fi
+
 mapfile -t variables < <(grep -vE '^#|^$' ${FILENAME})
 arr_length=${#variables[@]}
 if ((arr_length < 3)); then
@@ -55,31 +59,31 @@ fi
 
 #echo "Check if env include key variables"
 if [[ ! ${variables[@]} =~ "BK_SERVER1_IP" ]]; then
-  echo "missing key variables. Abort"
+  echo "missing key variable BK_SERVER1_IP. Abort"
   exit
 fi
-if [[ ! ${variables[@]} =~ "BK_SERVER1_USRNAME" ]]; then
-  echo "missing key variables. Abort"
+if [[ ! ${variables[@]} =~ "BK_SERVER1_USERNAME" ]]; then
+  echo "missing key variable BK_SERVER1_USERNAME. Abort"
   exit
 fi
 if [[ ! ${variables[@]} =~ "BK_SERVER1_PASSWORD" ]]; then
-  echo "missing key variables. Abort"
+  echo "missing key variable BK_SERVER1_PASSWORD. Abort"
   exit
 fi
 if [[ ! ${variables[@]} =~ "SMTP_SERVER" ]]; then
-  echo "missing key variables. Abort"
+  echo "missing key variable SMTP_SERVER. Abort"
   exit
 fi
 if [[ ! ${variables[@]} =~ "SMTP_ACCOUNT" ]]; then
-  echo "missing key variables. Abort"
+  echo "missing key variable SMTP_ACCOUNT. Abort"
   exit
 fi
 if [[ ! ${variables[@]} =~ "SMTP_PASSWORD" ]]; then
-  echo "missing key variables. Abort"
+  echo "missing key variable SMTP_PASSWORD. Abort"
   exit
 fi
 if [[ ! ${variables[@]} =~ "EMAIL_TO" ]]; then
-  echo "missing key variables. Abort"
+  echo "missing key variable EMAIL_TO. Abort"
   exit
 fi
 
@@ -113,7 +117,6 @@ fi
 
 SUBJECT="$DATE Server ${HOSTNAME} maintainer report"
 MESSAGE="/tmp/Mail.out"
-TO="peyoot@hotmail.com"
 echo "$ALARMBODY <br />" >> $MESSAGE
 echo "" >> $MESSAGE
 echo "------------------------------------------------------------------<br /> " >> $MESSAGE
@@ -185,6 +188,7 @@ echo "all availabe backup have been packed" >> $MESSAGE
 
 ####End of Block5####
 ##### call sendemail
-
-/usr/local/bin/sendemail.sh "$TO" "$SUBJECT" "$MESSAGE"
+sendemail -f ${SMTP_ACCOUNT} -t ${EMAIL_TO} -s ${SMTP_SERVER} -u ${SUBJECT} -o message-content-type=html -o message-charset=utf8 -o message-file=${MESSAGE} -xu ${SMTP_ACCOUNT} -xp ${SMTP_PASSWORD}
 rm /tmp/Mail.out
+
+echo "Server Maintainer script have finished its job"
