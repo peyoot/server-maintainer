@@ -29,7 +29,7 @@ fi
 
 eval ${PACKAGE_UPDATE}
 
-additional_packages=("sshpass" "jq" "sendemail")
+additional_packages=("curl" "sshpass" "jq" "sendemail")
 for pack_str in ${additional_packages[@]}; do
   if [ ! -e /usr/bin/${pack_str} ]; then
     PACKAGE_INSTALL=${PACKAGE_INSTALL_BASE}${pack_str}
@@ -123,7 +123,8 @@ echo "------------------------------------------------------------------<br /> "
 ####End of BLOCK3####
 
 ####BLOCK4: portainer backup####
-TOKEN=$(curl -s -X POST -H 'Accept: application/json' -H 'Content-Type: application/json' --data '{"username":"${PORTAINER_ADMIN}","password":"${PORTAINER_PASSWORD}"}' "${PORTAINER_URL}"/api/auth | jq -r '.jwt')
+TOKEN=$(curl -s -X POST -H 'Accept: application/json' -H 'Content-Type: application/json' --data "{\"username\":\"${PORTAINER_ADMIN}\",\"password\":\"${PORTAINER_PASSWORD}\"}" "${PORTAINER_URL}/api/auth" | jq -r .jwt)
+
 
 curl --request POST \
 --url http://172.100.100.1:9000/api/backup \
