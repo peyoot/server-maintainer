@@ -120,16 +120,33 @@ MESSAGE="/tmp/Mail.out"
 echo "$ALARMBODY <br />" >> $MESSAGE
 echo "" >> $MESSAGE
 echo "------------------------------------------------------------------<br /> " >> $MESSAGE
+
+#prepare backup folder in current path
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+cd $SCRIPTPATH
+mkdir -p backups/docker_volumes
+mkdir -p backups/${HOSTNAME}_${DATE}
+
 ####End of BLOCK3####
 
 ####BLOCK4: portainer backup####
-TOKEN=$(curl -s -X POST -H 'Accept: application/json' -H 'Content-Type: application/json' --data "{\"username\":\"${PORTAINER_ADMIN}\",\"password\":\"${PORTAINER_PASSWORD}\"}" "${PORTAINER_URL}/api/auth" | jq -r .jwt)
+echo "Login, lookup and stop stacks"
+TOKEN=$(curl -s --connect-timeout 300 -X POST -H 'Accept: application/json' -H 'Content-Type: application/json' --data "{\"username\":\"${PORTAINER_ADMIN}\",\"password\":\"${PORTAINER_PASSWORD}\"}" "${PORTAINER_URL}/api/auth" | jq -r .jwt)
+stack_arr=($(curl -s --connect-timeout 300 -X GET "${PORTAINER_URL}/api/stacks" -H "X-API-KEY:${PORTAINER_API_KEY}" | jq '.[]|select(.Status==1)'| jq -r ".Id"))
+for s in "${stack_arr[@]}"; do
+  curl -s --connect-timeout 300 -X POST "${PORTAINER_URL}/api/stacks/${s}/stop" -H "X-API-KEY:${PORTAINER_API_KEY}"
+done
+echo "now backup portainer configs which is a tar bal, not include volumes"
+curl --connect-timeout 3600 -X POST -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' "${PORTAINER_URL}/api/backup" > backups/${DATE}/${HOSTNAME}-portainer-backup-${DATE}.tar.gz
+echo "now backup volumes"
+#use rsync to sync volumes into the backup folder and then tarball it as a backup
+rsync -avzP --exclude={'backingFsBlockDev','metadata.db','portainer_data/*'} /var/lib/docker/volumes backups/docker_volumes
+sleep 1
+echo "wail till local rsync operation for tarball"
+tar -zc -f backups/${HOSTNAME}_${DATE}/docker_volumes.tgz backups/docker_volumes
+echo "now rsync to bk_server1"
+sshpass -p ${BK_SERVER1_PASSWORD} rsync -avzP backups '-e ssh -p 10022' ${BK_SERVER1_USERNAME}@${BK_SERVER1_IP}:/home/${BK_SERVER1_USERNAME}
 
-
-curl --request POST \
---url http://172.100.100.1:9000/api/backup \
---header 'Authorization: Bearer ${TOKEN}' \
---header 'Content-Type: application/json' > ${HOSTNAME}-portainer-backup.tar.gz
 ####End of Block4####
 
 ####Block5:  database backup####
@@ -138,12 +155,6 @@ curl --request POST \
 #######每周备份，内容生成到/var/log/weekly.report中#######
 
 
-
-SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
-cd $SCRIPTPATH
-mkdir -p backups/$DATE
-
-#backup code here
 #backup docker mysql8
 docker ps | grep 'mysql' &> /dev/null
 if [ $? ]; then
@@ -157,34 +168,14 @@ fi
 
 
 #backup docker mysql5
-docker ps | grep 'mysql5' &> /dev/null
-if [ $? ]; then
-  docker exec -t mysql5 bash -c "rm -fr /dump ; mkdir /dump ; mysqldump -h 127.0.0.1 -u root -ppassword eccee_doc > /dump/ecceedoc-${DATE}.sql"
-  docker cp mysql5:/dump/. $SCRIPTPATH/backups/$DATE 
-  echo "mysql5 database: ecceedoc have been successfully exported" >> $MESSAGE
-else
-  echo "container mysql5 in not running,backup fail <br />" >> $MESSAGE
 
-fi
-
-#backup docker wenkan-db postgresql
-docker ps | grep 'wekan-db' &> /dev/null
-if [ $? = 0 ]; then
-  docker exec -t wekan-db bash -c "rm -fr /dump ; mkdir /dump ; mongodump -o /dump/"
-#  docker cp wekan-db:/dump $SCRIPTPATH/backups/$DATE
-  cp -r /home/robin/docker/wekan/wekan-db-dump/. $SCRIPTPATH/backups/$DATE
-  echo "wekan-db is backuped <br />" >> $MESSAGE
-else
-  echo "wekan-db container is not running, backup fail <br />" >> $MESSAGE
-fi
-
-#pack all data to the day's backup package, and delete old backup(7days before)
-tar -zc -f backups/$DATE.tgz backups/$DATE
-if [ -f backups/$DATE.tgz ]; then
-  rm -fr backups/$DATE
-  find $SCRIPTPATH/backups/ -name "*.tgz" -mtime +7 -delete
-fi
-echo "all availabe backup have been packed" >> $MESSAGE
+##pack all data to the day's backup package, and delete old backup(7days before)
+#tar -zc -f backups/$DATE.tgz backups/$DATE
+#if [ -f backups/$DATE.tgz ]; then
+#  rm -fr backups/$DATE
+#  find $SCRIPTPATH/backups/ -name "*.tgz" -mtime +7 -delete
+#fi
+#echo "all availabe backup have been packed" >> $MESSAGE
 
 
 ####End of Block5####
