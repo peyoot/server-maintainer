@@ -150,9 +150,16 @@ echo "------------------------------------------------------------------<br /> "
 #prepare backup folder in current path
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 cd $SCRIPTPATH
-mkdir -p backups/docker_volumes
+if [ ! -d "${SCRIPTPATH}/backups" ]; then
+  install -o ${USER} -g ${USER} -d backups
+fi
+if [ ! -d "${SCRIPTPATH}/backups/monthly" ]; then
+  install -o ${USER} -g ${USER} -d backups/monthly
+fi
+if [ ! -d "${SCRIPTPATH}/backups/docker_volumes" ]; then
+  install -o ${USER} -g ${USER} -d backups/docker_volumes
+fi
 mkdir -p backups/${HOSTNAME}_${DATE}
-mkdir -p backups/monthly
 
 ####End of BLOCK3####
 
@@ -190,8 +197,8 @@ echo "monthly backup and clean redumdant files"
 if ($firstweek); then
   cp -r ${SCRIPTPATH}/backups/${HOSTNAME}_${DATE} backups/monthly/
 fi
-find $SCRIPTPATH/backups -maxdepth 1 -type d -mtime +30 -name "${HOSTNAME}*"  -exec rm -rf {} \;
-find $SCRIPTPATH/backups/monthly -maxdepth 1 -type d -mtime +180 -name "${HOSTNAME}*" -exec rm -rf {} \;
+find $SCRIPTPATH/backups -maxdepth 1 -type d -mtime +30 -name "${HOSTNAME}*" | sudo xargs rm -rf
+find $SCRIPTPATH/backups/monthly -maxdepth 1 -type d -mtime +180 -name "${HOSTNAME}*" | sudo xargs rm -rf
 
 #check if sync portainer server available
 if [[ ! ${variables[@]} =~ "SYNC_SERVER_IP" ]] || [[ ! ${variables[@]} =~ "SYNC_SERVER_USER" ]] || [[ ! ${variables[@]} =~ "SYNC_SERVER_PASSWORD"  ]]; then
