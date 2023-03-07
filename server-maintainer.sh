@@ -159,10 +159,17 @@ mkdir -p backups/monthly
 ####BLOCK4: portainer backup####
 echo "Login, lookup and stop stacks"
 TOKEN=$(curl -s --connect-timeout 300 -X POST -H 'Accept: application/json' -H 'Content-Type: application/json' --data "{\"username\":\"${PORTAINER_ADMIN}\",\"password\":\"${PORTAINER_PASSWORD}\"}" "${PORTAINER_URL}/api/auth" | jq -r .jwt)
-stack_arr=($(curl -s --connect-timeout 300 -X GET "${PORTAINER_URL}/api/stacks" -H "X-API-KEY:${PORTAINER_API_KEY}" | jq '.[]|select(.Status==1)'| jq -r ".Id"))
-for s in "${stack_arr[@]}"; do
-  curl -s --connect-timeout 300 -X POST "${PORTAINER_URL}/api/stacks/${s}/stop" -H "X-API-KEY:${PORTAINER_API_KEY}"
-done
+stack_arr=($(curl -s --connect-timeout 300 -X GET "${PORTAINER_URL}/api/stacks" -H "X-API-KEY:${PORTAINER_API_KEY}" | jq '.[]|select(.Status==1)' | jq -r '.Id'))
+#echo "stacks is ${stacks}"
+#stack_arr=(${stacks})
+echo "stack_arr array is ${stack_arr[@]}"
+if [[ ! "${stack_arr}" == "" ]]; then
+  for s in "${stack_arr[@]}"; do
+    curl -s --connect-timeout 300 -X POST "${PORTAINER_URL}/api/stacks/${s}/stop" -H "X-API-KEY:${PORTAINER_API_KEY}"
+  done
+else
+  echo "no runing stacks"
+fi
 echo "now backup portainer configs which is a tar ball, not include volumes"
 curl --connect-timeout 3600 -X POST -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' "${PORTAINER_URL}/api/backup" > backups/${HOSTNAME}_${DATE}/portainer-backup.tar.gz
 echo "now backup volumes"
@@ -172,23 +179,28 @@ sleep 1
 echo "wail till local rsync operation for tarball"
 tar -zc -f backups/${HOSTNAME}_${DATE}/docker_volumes.tgz backups/docker_volumes
 echo "now rsync to bk_server1"
-sshpass -p ${BK_SERVER1_PASSWORD} rsync -avzP backups '-e ssh -p 10022' ${BK_SERVER1_USER}@${BK_SERVER1_IP}:/home/${BK_SERVER1_USER}
-
-#check redumdant backup
-if ($firstweek); then
-  cp -r ${SCRIPTPATH}/backups/${HOSTNAME}_${DATE} backups/monthly/
-  find $SCRIPTPATH/backup -maxdepth 1 -type d -mtime +30 -name "20*" -exec rm -f {} \;
-  find $SCRIPTPATH/backup/monthly -maxdepth 1 -type d -mtime +180 -name "20*" -exec rm -f {} \;
+if [[ ! ${variables[@]} =~ "BK_SERVER1_SSHPORT" ]]; then
+  BK_SERVER1_SSHPORT=22
 fi
 
+sshpass -p ${BK_SERVER1_PASSWORD} rsync -avzP backups "-e ssh -p ${BK_SERVER1_SSHPORT} -o StrictHostKeyChecking=no" ${BK_SERVER1_USER}@${BK_SERVER1_IP}:/home/${BK_SERVER1_USER}
+
+#check redumdant backup
+echo "monthly backup and clean redumdant files"
+if ($firstweek); then
+  cp -r ${SCRIPTPATH}/backups/${HOSTNAME}_${DATE} backups/monthly/
+fi
+find $SCRIPTPATH/backups -maxdepth 1 -type d -mtime +30 -name "${HOSTNAME}*"  -exec rm -rf {} \;
+find $SCRIPTPATH/backups/monthly -maxdepth 1 -type d -mtime +180 -name "${HOSTNAME}*" -exec rm -rf {} \;
+
 #check if sync portainer server available
-if [[ ! ${variables[@]} =~ "SYNC_SERVER_IP" || ! ${variables[@]} =~ "SYNC_SERVER_USER" || ! ${variables[@]} =~ "SYNC_SERVER_IP"  ]]; then
+if [[ ! ${variables[@]} =~ "SYNC_SERVER_IP" ]] || [[ ! ${variables[@]} =~ "SYNC_SERVER_USER" ]] || [[ ! ${variables[@]} =~ "SYNC_SERVER_PASSWORD"  ]]; then
   echo "no sync server of portainer available"
 else
   echo "sync portainer server now! make sure remote sync server have rsync in sudoer group without the need to input password"
   docker-compose -f "${PORTAINER_PATH}/docker-compose.yml" down
-  sshpass -p ${SYNC_SERVER_PASSWORD} rsync -avzP ${PORTAINER_PATH} '-e ssh -p 10022 -o StrictHostKeyChecking=no' --rsync-path='sudo rsync' ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:${PORTAINER_PATH}
-  sshpass -p ${SYNC_SERVER_PASSWORD} rsync -avzP /var/lib/docker/volumes '-e ssh -p 10022 -o StrictHostKeyChecking=no' --rsync-path='sudo rsync' ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/var/lib/docker/volumes
+  sshpass -p ${SYNC_SERVER_PASSWORD} rsync -avzP ${PORTAINER_PATH} "-e ssh -p ${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no" --rsync-path="sudo rsync" ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/home/${SYNC_SERVER_USER}
+  sshpass -p ${SYNC_SERVER_PASSWORD} rsync -avzP /var/lib/docker/volumes "-e ssh -p ${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no" --rsync-path="sudo rsync" ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/var/lib/docker/volumes
   docker-compose -f "${PORTAINER_PATH}/docker-compose.yml" up -d
 fi
 
@@ -221,6 +233,14 @@ fi
 
 
 ####End of Block5####
+#restart stacks
+if [[ ! "${stack_arr}" == "" ]]; then
+  for s in "${stack_arr[@]}"; do
+    curl -s --connect-timeout 300 -X POST "${PORTAINER_URL}/api/stacks/${s}/start" -H "X-API-KEY:${PORTAINER_API_KEY}"
+  done
+  echo "stacks are all back to work now"
+fi
+
 ##### call sendemail
 sendemail -f ${SMTP_ACCOUNT} -t ${EMAIL_TO} -s ${SMTP_SERVER} -u ${SUBJECT} -o message-content-type=html -o message-charset=utf8 -o message-file=${MESSAGE} -xu ${SMTP_ACCOUNT} -xp ${SMTP_PASSWORD}
 rm /tmp/Mail.out
