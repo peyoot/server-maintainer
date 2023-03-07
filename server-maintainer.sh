@@ -37,7 +37,13 @@ for pack_str in ${additional_packages[@]}; do
   fi
 done
 
-
+# check if it's the first week of the month 
+WEEK=$(date '+%V')
+if [ $[${WEEK}%4] = 0 ]; then
+  firstweek=true
+else
+  firstweek=false
+fi
 ####End of BLOCK1####
 
 
@@ -62,8 +68,8 @@ if [[ ! ${variables[@]} =~ "BK_SERVER1_IP" ]]; then
   echo "missing key variable BK_SERVER1_IP. Abort"
   exit
 fi
-if [[ ! ${variables[@]} =~ "BK_SERVER1_USERNAME" ]]; then
-  echo "missing key variable BK_SERVER1_USERNAME. Abort"
+if [[ ! ${variables[@]} =~ "BK_SERVER1_USER" ]]; then
+  echo "missing key variable BK_SERVER1_USER. Abort"
   exit
 fi
 if [[ ! ${variables[@]} =~ "BK_SERVER1_PASSWORD" ]]; then
@@ -84,6 +90,26 @@ if [[ ! ${variables[@]} =~ "SMTP_PASSWORD" ]]; then
 fi
 if [[ ! ${variables[@]} =~ "EMAIL_TO" ]]; then
   echo "missing key variable EMAIL_TO. Abort"
+  exit
+fi
+if [[ ! ${variables[@]} =~ "PORTAINER_ADMIN" ]]; then
+  echo "missing key variable PORTAINER_ADMIN. Abort"
+  exit
+fi
+if [[ ! ${variables[@]} =~ "PORTAINER_PASSWORD" ]]; then
+  echo "missing key variable PORTAINER_PASSWORD. Abort"
+  exit
+fi
+if [[ ! ${variables[@]} =~ "PORTAINER_PATH" ]]; then
+  echo "missing key variable PORTAINER_PATH. Abort"
+  exit
+fi
+if [[ ! ${variables[@]} =~ "PORTAINER_URL" ]]; then
+  echo "missing key variable PORTAINER_URL. Abort"
+  exit
+fi
+if [[ ! ${variables[@]} =~ "PORTAINER_API_KEY" ]]; then
+  echo "missing key variable PORTAINER_API_KEY. Abort"
   exit
 fi
 
@@ -126,6 +152,7 @@ SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 cd $SCRIPTPATH
 mkdir -p backups/docker_volumes
 mkdir -p backups/${HOSTNAME}_${DATE}
+mkdir -p backups/monthly
 
 ####End of BLOCK3####
 
@@ -136,8 +163,8 @@ stack_arr=($(curl -s --connect-timeout 300 -X GET "${PORTAINER_URL}/api/stacks" 
 for s in "${stack_arr[@]}"; do
   curl -s --connect-timeout 300 -X POST "${PORTAINER_URL}/api/stacks/${s}/stop" -H "X-API-KEY:${PORTAINER_API_KEY}"
 done
-echo "now backup portainer configs which is a tar bal, not include volumes"
-curl --connect-timeout 3600 -X POST -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' "${PORTAINER_URL}/api/backup" > backups/${DATE}/${HOSTNAME}-portainer-backup-${DATE}.tar.gz
+echo "now backup portainer configs which is a tar ball, not include volumes"
+curl --connect-timeout 3600 -X POST -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' "${PORTAINER_URL}/api/backup" > backups/${HOSTNAME}_${DATE}/portainer-backup.tar.gz
 echo "now backup volumes"
 #use rsync to sync volumes into the backup folder and then tarball it as a backup
 rsync -avzP --exclude={'backingFsBlockDev','metadata.db','portainer_data/*'} /var/lib/docker/volumes backups/docker_volumes
@@ -145,29 +172,44 @@ sleep 1
 echo "wail till local rsync operation for tarball"
 tar -zc -f backups/${HOSTNAME}_${DATE}/docker_volumes.tgz backups/docker_volumes
 echo "now rsync to bk_server1"
-sshpass -p ${BK_SERVER1_PASSWORD} rsync -avzP backups '-e ssh -p 10022' ${BK_SERVER1_USERNAME}@${BK_SERVER1_IP}:/home/${BK_SERVER1_USERNAME}
+sshpass -p ${BK_SERVER1_PASSWORD} rsync -avzP backups '-e ssh -p 10022' ${BK_SERVER1_USER}@${BK_SERVER1_IP}:/home/${BK_SERVER1_USER}
 
-####End of Block4####
+#check redumdant backup
+if ($firstweek); then
+  cp -r ${SCRIPTPATH}/backups/${HOSTNAME}_${DATE} backups/monthly/
+  find $SCRIPTPATH/backup -maxdepth 1 -type d -mtime +30 -name "20*" -exec rm -f {} \;
+  find $SCRIPTPATH/backup/monthly -maxdepth 1 -type d -mtime +180 -name "20*" -exec rm -f {} \;
+fi
 
-####Block5:  database backup####
-#echo script log to message for email report
-#put database backup here
-#######每周备份，内容生成到/var/log/weekly.report中#######
-
-
-#backup docker mysql8
-docker ps | grep 'mysql' &> /dev/null
-if [ $? ]; then
-  docker exec -t mysql bash -c "rm -fr /dump ; mkdir /dump ; mysqldump -h 127.0.0.1 -u root -ppassword eccee > /dump/eccee-${DATE}.sql"
-  docker cp mysql:/dump/. $SCRIPTPATH/backups/$DATE
-  echo "mysql database: eccee have been successfully exported" >> $MESSAGE
+#check if sync portainer server available
+if [[ ! ${variables[@]} =~ "SYNC_SERVER_IP" || ! ${variables[@]} =~ "SYNC_SERVER_USER" || ! ${variables[@]} =~ "SYNC_SERVER_IP"  ]]; then
+  echo "no sync server of portainer available"
 else
-  echo "container mysql in not running,backup fail <br />" >> $MESSAGE
-
+  echo "sync portainer server now! make sure remote sync server have rsync in sudoer group without the need to input password"
+  docker-compose -f "${PORTAINER_PATH}/docker-compose.yml" down
+  sshpass -p ${SYNC_SERVER_PASSWORD} rsync -avzP ${PORTAINER_PATH} '-e ssh -p 10022 -o StrictHostKeyChecking=no' --rsync-path='sudo rsync' ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:${PORTAINER_PATH}
+  sshpass -p ${SYNC_SERVER_PASSWORD} rsync -avzP /var/lib/docker/volumes '-e ssh -p 10022 -o StrictHostKeyChecking=no' --rsync-path='sudo rsync' ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/var/lib/docker/volumes
+  docker-compose -f "${PORTAINER_PATH}/docker-compose.yml" up -d
 fi
 
 
-#backup docker mysql5
+####End of Block4####
+
+####Block5: web content and  database backup (volumes back up have include database backup, just double secure important application####
+#backup web content in dnmp/www
+
+#backup docker mysql8
+#docker ps | grep 'mysql' &> /dev/null
+#if [ $? ]; then
+#  docker exec -t mysql bash -c "rm -fr /dump ; mkdir /dump ; mysqldump -h 127.0.0.1 -u root -ppassword eccee > /dump/eccee-${DATE}.sql"
+#  docker cp mysql:/dump/. $SCRIPTPATH/backups/$DATE
+#  echo "mysql database: eccee have been successfully exported" >> $MESSAGE
+#else
+#  echo "container mysql in not running,backup fail <br />" >> $MESSAGE
+#
+#fi
+
+
 
 ##pack all data to the day's backup package, and delete old backup(7days before)
 #tar -zc -f backups/$DATE.tgz backups/$DATE
