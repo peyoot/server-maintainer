@@ -206,8 +206,11 @@ if [[ ! ${variables[@]} =~ "SYNC_SERVER_IP" ]] || [[ ! ${variables[@]} =~ "SYNC_
 else
   echo "sync portainer server now! make sure remote sync server have rsync in sudoer group without the need to input password"
   docker-compose -f "${PORTAINER_PATH}/docker-compose.yml" down
-  sshpass -p ${SYNC_SERVER_PASSWORD} rsync -avzP ${PORTAINER_PATH} "-e ssh -p ${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no" --rsync-path="sudo rsync" ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/home/${SYNC_SERVER_USER}
-  sshpass -p ${SYNC_SERVER_PASSWORD} rsync -avzP /var/lib/docker/volumes "-e ssh -p ${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no" --rsync-path="sudo rsync" ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/var/lib/docker/volumes
+  TEMP_SUDO_RSYNC='echo -n "#!" > mypass ; echo "/bin/bash" >> mypass ; echo "echo \"'${SYNC_SERVER_PASSWORD}'\"" >> mypass ; chmod +x mypass ; SUDO_ASKPASS=./mypass sudo -A rsync'
+  sshpass -p ${SYNC_SERVER_PASSWORD} rsync -avzP ${PORTAINER_PATH} "-e ssh -p ${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no" --rsync-path="${TEMP_SUDO_RSYNC}"  ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/home/${SYNC_SERVER_USER}
+  sshpass -p ${SYNC_SERVER_PASSWORD} rsync -avzP /var/lib/docker/volumes "-e ssh -p ${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no" --rsync-path="${TEMP_SUDO_RSYNC}"  ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/var/lib/docker/volumes
+  sshpass -p ${SYNC_SERVER_PASSWORD} ssh ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/home/${SYNC_SERVER_USER} 'rm -rf mypass'
+
   docker-compose -f "${PORTAINER_PATH}/docker-compose.yml" up -d
 fi
 
