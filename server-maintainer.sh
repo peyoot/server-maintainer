@@ -14,7 +14,7 @@ has_root
 
 ####BLOCK1: check the availability of necessary packages and install missing dependencies####
 #check os
-HOSTNAME=$(hostname)
+THIS_HOSTNAME=$(hostname)
 OS_RELEASE=$(awk -F= '/^NAME/{gsub(/"/, "", $2);print $2}' /etc/os-release)
 if [[ "$OS_RELEASE" =~ "Ubuntu" ]] || [[ "OS_REALSE" =~ "Debian" ]]; then
   PACKAGE_UPDATE="sudo apt update"
@@ -141,7 +141,7 @@ fi
 
 #Email notification header
 
-SUBJECT="$DATE Server ${HOSTNAME} maintainer report"
+SUBJECT="$DATE Server ${THIS_HOSTNAME} maintainer report"
 MESSAGE="/tmp/Mail.out"
 echo "$ALARMBODY <br />" >> $MESSAGE
 echo "" >> $MESSAGE
@@ -159,7 +159,7 @@ fi
 if [ ! -d "${SCRIPTPATH}/backups/docker_volumes" ]; then
   install -o ${USER} -g ${USER} -d backups/docker_volumes
 fi
-mkdir -p backups/${HOSTNAME}_${DATE}
+mkdir -p backups/${THIS_HOSTNAME}_${DATE}
 
 ####End of BLOCK3####
 
@@ -178,38 +178,43 @@ else
   echo "no runing stacks"
 fi
 echo "now backup portainer configs which is a tar ball, not include volumes"
-curl --connect-timeout 3600 -X POST -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' "${PORTAINER_URL}/api/backup" > backups/${HOSTNAME}_${DATE}/portainer-backup.tar.gz
+curl --connect-timeout 3600 -X POST -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' "${PORTAINER_URL}/api/backup" > backups/${THIS_HOSTNAME}_${DATE}/portainer-backup.tar.gz
 echo "now backup volumes"
 #use rsync to sync volumes into the backup folder and then tarball it as a backup
 rsync -avzP --exclude={'backingFsBlockDev','metadata.db','portainer_data/*'} /var/lib/docker/volumes backups/docker_volumes
 sleep 1
 echo "wail till local rsync operation for tarball"
-tar -zc -f backups/${HOSTNAME}_${DATE}/docker_volumes.tgz backups/docker_volumes
+tar -zc -f backups/${THIS_HOSTNAME}_${DATE}/docker_volumes.tgz backups/docker_volumes
 echo "now rsync to bk_server1"
 if [[ ! ${variables[@]} =~ "BK_SERVER1_SSHPORT" ]]; then
   BK_SERVER1_SSHPORT=22
 fi
 
-sshpass -p ${BK_SERVER1_PASSWORD} rsync -avzP backups "-e ssh -p ${BK_SERVER1_SSHPORT} -o StrictHostKeyChecking=no" ${BK_SERVER1_USER}@${BK_SERVER1_IP}:/home/${BK_SERVER1_USER}
+if [[ ! ${variables[@]} =~ "SYNC_SERVER_SSHPORT" ]]; then
+  SYNC_SERVER_SSHPORT=22
+fi
+
+sshpass -p ${BK_SERVER1_PASSWORD} ssh -p ${BK_SERVER1_SSHPORT} -o StrictHostKeyChecking=no ${BK_SERVER1_USER}@${BK_SERVER1_IP} "mkdir -p remote-bk/${THIS_HOSTNAME}"
+sshpass -p ${BK_SERVER1_PASSWORD} rsync -avzP backups "-e ssh -p ${BK_SERVER1_SSHPORT} -o StrictHostKeyChecking=no" ${BK_SERVER1_USER}@${BK_SERVER1_IP}:/home/${BK_SERVER1_USER}/remote-bk/${THIS_HOSTNAME}/server-maintainer
 
 #check redumdant backup
 echo "monthly backup and clean redumdant files"
 if ($firstweek); then
-  cp -r ${SCRIPTPATH}/backups/${HOSTNAME}_${DATE} backups/monthly/
+  cp -r ${SCRIPTPATH}/backups/${THIS_HOSTNAME}_${DATE} backups/monthly/
 fi
-find $SCRIPTPATH/backups -maxdepth 1 -type d -mtime +30 -name "${HOSTNAME}*" | sudo xargs rm -rf
-find $SCRIPTPATH/backups/monthly -maxdepth 1 -type d -mtime +180 -name "${HOSTNAME}*" | sudo xargs rm -rf
+find $SCRIPTPATH/backups -maxdepth 1 -type d -mtime +30 -name "${THIS_HOSTNAME}*" | sudo xargs rm -rf
+find $SCRIPTPATH/backups/monthly -maxdepth 1 -type d -mtime +180 -name "${THIS_HOSTNAME}*" | sudo xargs rm -rf
 
 #check if sync portainer server available
 if [[ ! ${variables[@]} =~ "SYNC_SERVER_IP" ]] || [[ ! ${variables[@]} =~ "SYNC_SERVER_USER" ]] || [[ ! ${variables[@]} =~ "SYNC_SERVER_PASSWORD"  ]]; then
   echo "no sync server of portainer available"
 else
-  echo "sync portainer server now! make sure remote sync server have rsync in sudoer group without the need to input password"
+  echo "sync portainer server now! "
   docker-compose -f "${PORTAINER_PATH}/docker-compose.yml" down
   TEMP_SUDO_RSYNC='echo -n "#!" > mypass ; echo "/bin/bash" >> mypass ; echo "echo \"'${SYNC_SERVER_PASSWORD}'\"" >> mypass ; chmod +x mypass ; SUDO_ASKPASS=./mypass sudo -A rsync'
   sshpass -p ${SYNC_SERVER_PASSWORD} rsync -avzP ${PORTAINER_PATH} "-e ssh -p ${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no" --rsync-path="${TEMP_SUDO_RSYNC}"  ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/home/${SYNC_SERVER_USER}
   sshpass -p ${SYNC_SERVER_PASSWORD} rsync -avzP /var/lib/docker/volumes "-e ssh -p ${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no" --rsync-path="${TEMP_SUDO_RSYNC}"  ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/var/lib/docker/volumes
-  sshpass -p ${SYNC_SERVER_PASSWORD} ssh ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/home/${SYNC_SERVER_USER} 'rm -rf mypass'
+  sshpass -p ${SYNC_SERVER_PASSWORD} ssh -p${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no ${SYNC_SERVER_USER}@${SYNC_SERVER_IP} 'rm -rf mypass'
 
   docker-compose -f "${PORTAINER_PATH}/docker-compose.yml" up -d
 fi
