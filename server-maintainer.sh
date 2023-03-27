@@ -16,10 +16,10 @@ has_root
 #check os
 THIS_HOSTNAME=$(hostname)
 OS_RELEASE=$(awk -F= '/^NAME/{gsub(/"/, "", $2);print $2}' /etc/os-release)
-if [[ "$OS_RELEASE" =~ "Ubuntu" ]] || [[ "OS_RELEASE" =~ "Debian" ]]; then
+if [[ "$OS_RELEASE" =~ "Ubuntu" ]] || [[ "$OS_RELEASE" =~ "Debian" ]]; then
   PACKAGE_UPDATE="sudo apt update"
   PACKAGE_INSTALL_BASE="sudo apt install -y "
-elif [[ "OS_RELEASE" =~ "openEuler" ]] || [[ "OS_RELEASE" =~ "Centos" ]]; then
+elif [[ "$OS_RELEASE" =~ "openEuler" ]] || [[ "$OS_RELEASE" =~ "Centos" ]]; then
   PACKAGE_UPDATE="sudo dnf check-update"
   PACKAGE_INSTALL_BASE="sudo dnf install -y "
 else
