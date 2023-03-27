@@ -181,7 +181,7 @@ echo "now backup portainer configs which is a tar ball, not include volumes"
 curl --connect-timeout 3600 -X POST -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' "${PORTAINER_URL}/api/backup" > backups/${THIS_HOSTNAME}_${DATE}/portainer-backup.tar.gz
 echo "now backup volumes"
 #use rsync to sync volumes into the backup folder and then tarball it as a backup
-rsync -avzP --exclude={'backingFsBlockDev','metadata.db','portainer_data/*'} /var/lib/docker/volumes backups/docker_volumes
+rsync -az --delete --exclude={'backingFsBlockDev','metadata.db','portainer_data/*'} /var/lib/docker/volumes backups/docker_volumes
 sleep 1
 echo "wail till local rsync operation for tarball"
 tar -zc -f backups/${THIS_HOSTNAME}_${DATE}/docker_volumes.tgz backups/docker_volumes
@@ -211,14 +211,13 @@ if [[ ! ${variables[@]} =~ "SYNC_SERVER_IP" ]] || [[ ! ${variables[@]} =~ "SYNC_
 else
   echo "sync portainer server now! "
   docker-compose -f "${PORTAINER_PATH}/docker-compose.yml" down
+  sshpass -p ${SYNC_SERVER_PASSWORD} ssh -p${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no ${SYNC_SERVER_USER}@${SYNC_SERVER_IP} 'if [ ! -d "/home/${SYNC_SERVER_USER}/docker" ] ; then mkdir -p docker ; else docker-compose -f "/home/${SNYC_SERVER_USER}/docker/portainer/docker-compose.yml" down ; fi'
   TEMP_SUDO_RSYNC='echo -n "#!" > mypass ; echo "/bin/bash" >> mypass ; echo "echo \"'${SYNC_SERVER_PASSWORD}'\"" >> mypass ; chmod +x mypass ; SUDO_ASKPASS=./mypass sudo -A rsync'
-  sshpass -p ${SYNC_SERVER_PASSWORD} rsync -avzP ${PORTAINER_PATH} "-e ssh -p ${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no" --rsync-path="${TEMP_SUDO_RSYNC}"  ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/home/${SYNC_SERVER_USER}
-  sshpass -p ${SYNC_SERVER_PASSWORD} rsync -avzP /var/lib/docker/volumes "-e ssh -p ${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no" --rsync-path="${TEMP_SUDO_RSYNC}"  ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/var/lib/docker/volumes
-  sshpass -p ${SYNC_SERVER_PASSWORD} ssh -p${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no ${SYNC_SERVER_USER}@${SYNC_SERVER_IP} 'rm -rf mypass'
-
+  sshpass -p ${SYNC_SERVER_PASSWORD} rsync -az ${PORTAINER_PATH} "-e ssh -p ${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no" --rsync-path="${TEMP_SUDO_RSYNC}"  ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/home/${SYNC_SERVER_USER}/docker
+  sshpass -p ${SYNC_SERVER_PASSWORD} rsync -az /var/lib/docker/volumes "-e ssh -p ${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no" --rsync-path="${TEMP_SUDO_RSYNC}"  ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/var/lib/docker/
+  sshpass -p ${SYNC_SERVER_PASSWORD} ssh -p${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no ${SYNC_SERVER_USER}@${SYNC_SERVER_IP} 'rm -rf mypass ; if [ -f "/home/${SYNC_SERVER_USER}/docker/portainer/docker-compose.yml" ] ; then docker-compose -f  "/home/${SYNC_SERVER_USER}/docker/portainer/docker-compose.yml" up ; fi'
   docker-compose -f "${PORTAINER_PATH}/docker-compose.yml" up -d
 fi
-
 
 ####End of Block4####
 
@@ -248,7 +247,7 @@ fi
 
 
 ####End of Block5####
-#restart stacks
+#resume stacks
 if [[ ! "${stack_arr}" == "" ]]; then
   for s in "${stack_arr[@]}"; do
     curl -s --connect-timeout 300 -X POST "${PORTAINER_URL}/api/stacks/${s}/start" -H "X-API-KEY:${PORTAINER_API_KEY}"
