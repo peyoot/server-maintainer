@@ -148,7 +148,7 @@ fi
 if [ $(echo "$cpuusage > 0.7"|bc) -eq 1 ]; then
   echo "CPU Alarm: reach 70% utilization <br />" >> $MESSAGE
 fi
-echo "Only no alarms in the above status that can indicate a healthy server system! " >> $MESSAGE
+echo "Only zero alarm in the above status that can indicate a healthy server system! <br /> " >> $MESSAGE
 echo "------------------------------------------------------------------<br /> " >> $MESSAGE
 echo "<h3>Backup process log</h3>" >> $MESSAGE
 
