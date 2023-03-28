@@ -196,15 +196,15 @@ else
   echo "no runing solo containers <br />" >> $MESSAGE
 fi
 
-echo "now backup portainer configs which is a tar ball, not include volumes <br />"  >> $MESSAGE
+echo "backup portainer configs which is a tar ball, not include volumes <br />"  >> $MESSAGE
 curl -s --connect-timeout 3600 -X POST -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' "${PORTAINER_URL}/api/backup" > backups/${THIS_HOSTNAME}_${DATE}/portainer-backup.tar.gz
-echo "now backup volumes <br />" >> $MESSAGE
+echo "backup volumes <br />" >> $MESSAGE
 #use rsync to sync volumes into the backup folder and then tarball it as a backup
 rsync -az --delete --exclude={'backingFsBlockDev','metadata.db','portainer_data/*'} /var/lib/docker/volumes backups/docker_volumes
 sleep 1
 echo "pack tarball for portainer backup data and volumes <br />" >> $MESSAGE
 tar -zc -f backups/${THIS_HOSTNAME}_${DATE}/docker_volumes.tgz backups/docker_volumes
-echo "rsync backup tar ball to bk_server1"  >> $MESSAGE
+echo "transfer backup tarball to bk_server1 <br />"  >> $MESSAGE
 if [[ ! ${variables[@]} =~ "BK_SERVER1_SSHPORT" ]]; then
   BK_SERVER1_SSHPORT=22
 fi
