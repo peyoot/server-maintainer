@@ -1,5 +1,6 @@
 #### Introduction to server-maintainer
-[中文](README_CN.md "中文")
+[中文](README_cn.md "中文")  
+
 This is a script tool for server operation and maintenance and backup, which is used for server health reporting, docker and docker-composite backup, and redundant server synchronization. If you have services that use docker and you need to regularly report on server health, back up and synchronize important data so that you can switch standby platforms at any time in case of server hardware failure or failure, then server-maintainer is the right choice.
 
 You can run the project's scripts on one or more servers. To achieve the best match for this script, we recommend that you run your docker platform in the following way:
