@@ -29,13 +29,21 @@ fi
 
 eval ${PACKAGE_UPDATE}
 
-additional_packages=("curl" "sshpass" "jq" "sendemail")
+additional_packages=("curl" "sshpass" "jq")
 for pack_str in ${additional_packages[@]}; do
   if [ ! -e /usr/bin/${pack_str} ]; then
     PACKAGE_INSTALL=${PACKAGE_INSTALL_BASE}${pack_str}
     eval ${PACKAGE_INSTALL}
   fi
 done
+
+#install packages like sendemail which couldn't be installed via dnf
+if [[ ! -e /usr/local/bin/sendEmail.pl ]]; then
+  wget https://raw.githubusercontent.com/zehm/sendEmail/master/sendEmail.pl
+  chmod +x sendEmail.pl
+  mv sendEmail.pl /usr/local/bin/
+  ln -s /usr/local/bin/sendEmail.pl /usr/local/bin/sendemail
+fi
 
 # check if it's the first week of the month 
 WEEK=$(date '+%V')
@@ -256,7 +264,7 @@ if [[ ! "${stack_arr}" == "" ]]; then
 fi
 
 ##### call sendemail
-sendemail -f ${SMTP_ACCOUNT} -t ${EMAIL_TO} -s ${SMTP_SERVER} -u ${SUBJECT} -o message-content-type=html -o message-charset=utf8 -o message-file=${MESSAGE} -xu ${SMTP_ACCOUNT} -xp ${SMTP_PASSWORD}
+sendemail -f ${SMTP_ACCOUNT} -t ${EMAIL_TO} -s ${SMTP_SERVER} -u ${SUBJECT} -o tls=no -o message-content-type=html -o message-charset=utf8 -o message-file=${MESSAGE} -xu ${SMTP_ACCOUNT} -xp ${SMTP_PASSWORD}
 rm /tmp/Mail.out
 
 echo "Server Maintainer script have finished its job"
