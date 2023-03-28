@@ -136,25 +136,22 @@ DATE=$(date +%Y-%m-%d-%H-%M)
 ramusage=$(free | awk '/Mem/{printf("RAM Usage: %.2f\n"), $3/$2*100}'| awk '{print $3}')
 diskusage=$(df -h | awk '$NF=="/"{printf "Disk Usage: %d/%dGB %s\n", $3,$2,$5}' | awk '{print $4}' | awk -F'%' '{print $1}')
 cpuusage=$(top -bn1 | grep load | awk '{printf "CPU Load: %.2f\n", $(NF-2)}' | awk '{print $3/4}')
-ALARMBODY="<h3>CPU/Memory/Disk Utilization</h3>"
-if [ $(echo "$ramusage > 80"|bc) -eq 1 ]; then
-  echo "Memory Alarm: reach ${ramusage}% utilization <br />" >> $ALARMBODY
-fi
-if [ $(echo "$diskusage > 90"|bc) -eq 1 ]; then
-  echo "Disk Alarm: / reach ${diskusage}% utilization <br />" >> $ALARMBODY
-fi
-if [ $(echo "$cpuusage > 0.7"|bc) -eq 1 ]; then
-  echo "CPU Alarm: reach 70% utilization <br />" >> $ALARMBODY
-fi
-
-#Email notification header
-
 SUBJECT="$DATE Server ${THIS_HOSTNAME} maintainer report"
 MESSAGE="/tmp/Mail.out"
-echo "$ALARMBODY <br />" >> $MESSAGE
-echo "" >> $MESSAGE
+echo "<h3>CPU/Memory/Disk Utilization</h3>" >> $MESSAGE
+if [ $(echo "$ramusage > 80"|bc) -eq 1 ]; then
+  echo "Memory Alarm: reach ${ramusage}% utilization <br />" >> $MESSAGE
+fi
+if [ $(echo "$diskusage > 90"|bc) -eq 1 ]; then
+  echo "Disk Alarm: / reach ${diskusage}% utilization <br />" >> $MESSAGE
+fi
+if [ $(echo "$cpuusage > 0.7"|bc) -eq 1 ]; then
+  echo "CPU Alarm: reach 70% utilization <br />" >> $MESSAGE
+fi
+echo "Only no alarms in the above status that can indicate a healthy server system! " >> $MESSAGE
 echo "------------------------------------------------------------------<br /> " >> $MESSAGE
-echo "containers backup process: <br />" >> $MESSAGE
+echo "<h3>Backup process log</h3>" >> $MESSAGE
+
 #prepare backup folder in current path
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 cd $SCRIPTPATH
@@ -175,37 +172,37 @@ mkdir -p backups/${THIS_HOSTNAME}_${DATE}
 #get local environment
 local_endpoint=$(curl -s --connect-timeout 300 -X GET "${PORTAINER_URL}/api/endpoints" -H "X-API-KEY:${PORTAINER_API_KEY}" |  jq '.[]|select(.Type==1)' | jq -r '.Id')
 echo "start backup process, this will take quite a while. please wait..."
-echo "Login, lookup and stop stacks and solo containers" >> $MESSAGE
+echo "Login, lookup and stop stacks and solo containers <br />" >> $MESSAGE
 TOKEN=$(curl -s --connect-timeout 300 -X POST -H 'Accept: application/json' -H 'Content-Type: application/json' --data "{\"username\":\"${PORTAINER_ADMIN}\",\"password\":\"${PORTAINER_PASSWORD}\"}" "${PORTAINER_URL}/api/auth" | jq -r .jwt)
 stack_arr=($(curl -s --connect-timeout 300 -X GET "${PORTAINER_URL}/api/stacks" -H "X-API-KEY:${PORTAINER_API_KEY}" | jq '.[]|select(.Status==1)' | jq -r '.Id'))
-echo "Running stack ID list:  ${stack_arr}" >> $MESSAGE
+echo "Running stack ID list:  ${stack_arr} <br />" >> $MESSAGE
 #echo "stack_arr array is ${stack_arr[@]}"
 if [[ ! "${stack_arr}" == "" ]]; then
   for s in "${stack_arr[@]}"; do
     curl -s --connect-timeout 300 -X POST "${PORTAINER_URL}/api/stacks/${s}/stop" -H "X-API-KEY:${PORTAINER_API_KEY}"
   done
 else
-  echo "no runing stacks" >> $MESSAGE
+  echo "no runing stacks <br />" >> $MESSAGE
 fi
 sleep 10
 running_containers=($(curl -s --connect-timeout 300 -X GET "${PORTAINER_URL}/api/endpoints/${local_endpoint}/docker/containers/json" -H "X-API-KEY:${PORTAINER_API_KEY}" | jq '.[]|select(.Names!=["/portainer"])' | jq -r '.Id'))
-echo "Running solo container ID list: ${running_containers}" >> $MESSAGE
+echo "Running solo container ID list: ${running_containers} <br />" >> $MESSAGE
 
 if [[ ! "${running_containers}" == "" ]]; then
   for d in "${running_containers[@]}"; do
     curl -s --connect-timeout 300 -X POST "${PORTAINER_URL}/api/endpoints/${local_endpoint}/docker/containers/${d}/stop" -H "X-API-KEY:${PORTAINER_API_KEY}"
   done
 else
-  echo "no runing solo containers" >> $MESSAGE
+  echo "no runing solo containers <br />" >> $MESSAGE
 fi
 
-echo "now backup portainer configs which is a tar ball, not include volumes"  >> $MESSAGE
+echo "now backup portainer configs which is a tar ball, not include volumes <br />"  >> $MESSAGE
 curl -s --connect-timeout 3600 -X POST -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' "${PORTAINER_URL}/api/backup" > backups/${THIS_HOSTNAME}_${DATE}/portainer-backup.tar.gz
-echo "now backup volumes" >> $MESSAGE
+echo "now backup volumes <br />" >> $MESSAGE
 #use rsync to sync volumes into the backup folder and then tarball it as a backup
 rsync -az --delete --exclude={'backingFsBlockDev','metadata.db','portainer_data/*'} /var/lib/docker/volumes backups/docker_volumes
 sleep 1
-echo "pack tarball for portainer backup data and volumes" >> $MESSAGE
+echo "pack tarball for portainer backup data and volumes <br />" >> $MESSAGE
 tar -zc -f backups/${THIS_HOSTNAME}_${DATE}/docker_volumes.tgz backups/docker_volumes
 echo "rsync backup tar ball to bk_server1"  >> $MESSAGE
 if [[ ! ${variables[@]} =~ "BK_SERVER1_SSHPORT" ]]; then
@@ -220,7 +217,7 @@ sshpass -p ${BK_SERVER1_PASSWORD} ssh -p ${BK_SERVER1_SSHPORT} -o StrictHostKeyC
 sshpass -p ${BK_SERVER1_PASSWORD} rsync -az backups "-e ssh -p ${BK_SERVER1_SSHPORT} -o StrictHostKeyChecking=no" ${BK_SERVER1_USER}@${BK_SERVER1_IP}:/home/${BK_SERVER1_USER}/remote-bk/${THIS_HOSTNAME}/server-maintainer
 
 #check redumdant backup
-echo "monthly backup and clean redumdant files" >> $MESSAGE
+echo "monthly backup and clean redumdant files <br />" >> $MESSAGE
 if ($firstweek); then
   cp -r ${SCRIPTPATH}/backups/${THIS_HOSTNAME}_${DATE} backups/monthly/
 fi
@@ -229,9 +226,9 @@ find $SCRIPTPATH/backups/monthly -maxdepth 1 -type d -mtime +180 -name "${THIS_H
 
 #check if sync portainer server available
 if [[ ! ${variables[@]} =~ "SYNC_SERVER_IP" ]] || [[ ! ${variables[@]} =~ "SYNC_SERVER_USER" ]] || [[ ! ${variables[@]} =~ "SYNC_SERVER_PASSWORD"  ]]; then
-  echo "no sync server of portainer available, backup finished" >> $MESSAGE 
+  echo "no sync server of portainer available, backup finished <br />" >> $MESSAGE 
 else
-  echo "sync portainer server now! " >> $MESSAGE
+  echo "sync portainer server now! <br /> " >> $MESSAGE
   docker-compose -f "${PORTAINER_PATH}/docker-compose.yml" down
   sshpass -p ${SYNC_SERVER_PASSWORD} ssh -p${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no ${SYNC_SERVER_USER}@${SYNC_SERVER_IP} 'if [ ! -d "/home/${SYNC_SERVER_USER}/docker" ] ; then mkdir -p docker ; else docker-compose -f "/home/${SNYC_SERVER_USER}/docker/portainer/docker-compose.yml" down ; fi'
   TEMP_SUDO_RSYNC='echo -n "#!" > mypass ; echo "/bin/bash" >> mypass ; echo "echo \"'${SYNC_SERVER_PASSWORD}'\"" >> mypass ; chmod +x mypass ; SUDO_ASKPASS=./mypass sudo -A rsync'
@@ -275,7 +272,7 @@ if [[ ! "${stack_arr}" == "" ]]; then
   for s in "${stack_arr[@]}"; do
     curl -s --connect-timeout 300 -X POST "${PORTAINER_URL}/api/stacks/${s}/start" -H "X-API-KEY:${PORTAINER_API_KEY}"
   done
-  echo "stacks are all back to work now"  >> $MESSAGE
+  echo "stacks are all back to work now <br />"  >> $MESSAGE
 fi
 
 sleep 5
@@ -284,7 +281,7 @@ if [[ ! "${running_containers}" == "" ]]; then
   for d in "${running_containers[@]}"; do
     curl -s --connect-timeout 300 -X POST "${PORTAINER_URL}/api/endpoints/${local_endpoint}/docker/containers/${d}/start" -H "X-API-KEY:${PORTAINER_API_KEY}"
   done
-  echo "All containers back to work now"  >> $MESSAGE
+  echo "All containers back to work now <br />"  >> $MESSAGE
 fi
 ##### call sendemail
 sendemail -f ${SMTP_ACCOUNT} -t ${EMAIL_TO} -s ${SMTP_SERVER} -u ${SUBJECT} -o tls=no -o message-content-type=html -o message-charset=utf8 -o message-file=${MESSAGE} -xu ${SMTP_ACCOUNT} -xp ${SMTP_PASSWORD}
