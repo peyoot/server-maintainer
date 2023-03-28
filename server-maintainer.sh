@@ -172,6 +172,8 @@ mkdir -p backups/${THIS_HOSTNAME}_${DATE}
 ####End of BLOCK3####
 
 ####BLOCK4: portainer backup####
+#get local environment
+local_endpoint=$(curl -s --connect-timeout 300 -X GET "${PORTAINER_URL}/api/endpoints" -H "X-API-KEY:${PORTAINER_API_KEY}" |  jq '.[]|select(.Type==1)' | jq -r '.Id')
 echo "Login, lookup and stop stacks"
 TOKEN=$(curl -s --connect-timeout 300 -X POST -H 'Accept: application/json' -H 'Content-Type: application/json' --data "{\"username\":\"${PORTAINER_ADMIN}\",\"password\":\"${PORTAINER_PASSWORD}\"}" "${PORTAINER_URL}/api/auth" | jq -r .jwt)
 stack_arr=($(curl -s --connect-timeout 300 -X GET "${PORTAINER_URL}/api/stacks" -H "X-API-KEY:${PORTAINER_API_KEY}" | jq '.[]|select(.Status==1)' | jq -r '.Id'))
@@ -185,6 +187,19 @@ if [[ ! "${stack_arr}" == "" ]]; then
 else
   echo "no runing stacks"
 fi
+sleep 10
+#running_containers=($(curl -s --connect-timeout 300 -X GET "${PORTAINER_URL}/api/endpoints/${local_endpoint}/docker/containers/json" -H "X-API-KEY:${PORTAINER_API_KEY}" | jq -r '.Id'))
+running_containers=($(curl -s --connect-timeout 300 -X GET "${PORTAINER_URL}/api/endpoints/${local_endpoint}/docker/containers/json" -H "X-API-KEY:${PORTAINER_API_KEY}" | jq '.[]|select(.Names!=["/portainer"])' | jq -r '.Id'))
+echo "container_arr is ${running_containers}"
+
+if [[ ! "${running_containers}" == "" ]]; then
+  for d in "${running_containers[@]}"; do
+    curl -s --connect-timeout 300 -X POST "${PORTAINER_URL}/api/endpoints/${local_endpoint}/docker/containers/${d}/stop" -H "X-API-KEY:${PORTAINER_API_KEY}"
+  done
+else
+  echo "no runing containers"
+fi
+
 echo "now backup portainer configs which is a tar ball, not include volumes"
 curl --connect-timeout 3600 -X POST -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' "${PORTAINER_URL}/api/backup" > backups/${THIS_HOSTNAME}_${DATE}/portainer-backup.tar.gz
 echo "now backup volumes"
@@ -256,6 +271,7 @@ fi
 
 ####End of Block5####
 #resume stacks
+sleep 10
 if [[ ! "${stack_arr}" == "" ]]; then
   for s in "${stack_arr[@]}"; do
     curl -s --connect-timeout 300 -X POST "${PORTAINER_URL}/api/stacks/${s}/start" -H "X-API-KEY:${PORTAINER_API_KEY}"
@@ -263,6 +279,15 @@ if [[ ! "${stack_arr}" == "" ]]; then
   echo "stacks are all back to work now"
 fi
 
+sleep 5
+
+if [[ ! "${running_containers}" == "" ]]; then
+  for d in "${running_containers[@]}"; do
+    curl -s --connect-timeout 300 -X POST "${PORTAINER_URL}/api/endpoints/${local_endpoint}/docker/containers/${d}/start" -H "X-API-KEY:${PORTAINER_API_KEY}"
+  done
+else
+  echo "no runing containers"
+fi
 ##### call sendemail
 sendemail -f ${SMTP_ACCOUNT} -t ${EMAIL_TO} -s ${SMTP_SERVER} -u ${SUBJECT} -o tls=no -o message-content-type=html -o message-charset=utf8 -o message-file=${MESSAGE} -xu ${SMTP_ACCOUNT} -xp ${SMTP_PASSWORD}
 rm /tmp/Mail.out
