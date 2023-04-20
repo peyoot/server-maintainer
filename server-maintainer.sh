@@ -6,8 +6,8 @@
 
 has_root() {
     if [[ $EUID -ne 0 ]]; then
-        echo "you need root privilege to run the script" 1>&2
-		exit 1
+        echo "you need root privilege to run the script" | tee /var/log/server_maintainer.log
+	exit 1
     fi
 }
 has_root
@@ -17,13 +17,13 @@ has_root
 THIS_HOSTNAME=$(hostname)
 OS_RELEASE=$(awk -F= '/^NAME/{gsub(/"/, "", $2);print $2}' /etc/os-release)
 if [[ "$OS_RELEASE" =~ "Ubuntu" ]] || [[ "$OS_RELEASE" =~ "Debian" ]]; then
-  PACKAGE_UPDATE="sudo apt update"
-  PACKAGE_INSTALL_BASE="sudo apt install -y "
+  PACKAGE_UPDATE="sudo apt -qq update"
+  PACKAGE_INSTALL_BASE="sudo apt -qq -y install "
 elif [[ "$OS_RELEASE" =~ "openEuler" ]] || [[ "$OS_RELEASE" =~ "Centos" ]]; then
-  PACKAGE_UPDATE="sudo dnf check-update"
-  PACKAGE_INSTALL_BASE="sudo dnf install -y "
+  PACKAGE_UPDATE="sudo dnf -q check-update"
+  PACKAGE_INSTALL_BASE="sudo dnf -q -y install "
 else
-  echo "This distribution haven't been test yet"
+  echo "This distribution haven't been test yet" | tee /var/log/server_maintainer.log
   exit
 fi
 
@@ -60,14 +60,14 @@ FILENAME=.env
 #ops_abort=0
 echo "verify .env file"
 if [[ ! -f ${FILENAME} ]]; then
-  echo "couldn't find env file in current folder,abort!"
+  echo "couldn't find env file in current folder,abort!" | tee /var/log/server_maintainer.log
   exit
 fi
 
 mapfile -t variables < <(grep -vE '^#|^$' ${FILENAME})
 arr_length=${#variables[@]}
 if ((arr_length < 3)); then
-  echo "bad environment file.Abort"
+  echo "bad environment file.Abort" | tee /var/log/server_maintainer.log
   exit
 fi
 
@@ -287,4 +287,5 @@ fi
 sendemail -f ${SMTP_ACCOUNT} -t ${EMAIL_TO} -s ${SMTP_SERVER} -u ${SUBJECT} -o tls=no -o message-content-type=html -o message-charset=utf8 -o message-file=${MESSAGE} -xu ${SMTP_ACCOUNT} -xp ${SMTP_PASSWORD}
 rm /tmp/Mail.out
 
-echo "Server Maintainer script have finished its job!" 
+echo $MESSAGE >> /var/log/server-maintainer.log
+echo "Server Maintainer script have finished its job on ${DATE}!" | tee /var/log/server-maintainer.log 
