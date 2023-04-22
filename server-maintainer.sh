@@ -3,10 +3,10 @@
 ## any issue please report to peyoot#hotmail.com 
 ## check if bc package have been installed, if not simply sudo apt install bc
 ## your need to chage necessary parameters in env.example file and save as .env
-
+LOGFILE="/var/log/server_maintainer.log"
 has_root() {
     if [[ $EUID -ne 0 ]]; then
-        echo "you need root privilege to run the script" | tee /var/log/server_maintainer.log
+        echo "you need root privilege to run the script" | tee ${LOGFILE}
 	exit 1
     fi
 }
@@ -23,7 +23,7 @@ elif [[ "$OS_RELEASE" =~ "openEuler" ]] || [[ "$OS_RELEASE" =~ "Centos" ]]; then
   PACKAGE_UPDATE="sudo dnf -q check-update"
   PACKAGE_INSTALL_BASE="sudo dnf -q -y install "
 else
-  echo "This distribution haven't been test yet" | tee /var/log/server_maintainer.log
+  echo "This distribution haven't been test yet" | tee ${LOGFILE}
   exit
 fi
 
@@ -60,14 +60,14 @@ FILENAME=.env
 #ops_abort=0
 echo "verify .env file"
 if [[ ! -f ${FILENAME} ]]; then
-  echo "couldn't find env file in current folder,abort!" | tee /var/log/server_maintainer.log
+  echo "couldn't find env file in current folder,abort!" | tee ${LOGFILE}
   exit
 fi
 
 mapfile -t variables < <(grep -vE '^#|^$' ${FILENAME})
 arr_length=${#variables[@]}
 if ((arr_length < 3)); then
-  echo "bad environment file.Abort" | tee /var/log/server_maintainer.log
+  echo "bad environment file.Abort" | tee ${LOGFILE}
   exit
 fi
 
@@ -287,5 +287,10 @@ fi
 sendemail -f ${SMTP_ACCOUNT} -t ${EMAIL_TO} -s ${SMTP_SERVER} -u ${SUBJECT} -o tls=no -o message-content-type=html -o message-charset=utf8 -o message-file=${MESSAGE} -xu ${SMTP_ACCOUNT} -xp ${SMTP_PASSWORD}
 rm /tmp/Mail.out
 
-echo $MESSAGE >> /var/log/server-maintainer.log
-echo "Server Maintainer script have finished its job on ${DATE}!" | tee /var/log/server-maintainer.log 
+echo "Server Maintainer script have finished its job on ${DATE}!" | tee ${LOGFILE}
+
+LOGSIZE=`ls -l ${LOGFILE} | awk '{ print $5 }'`
+
+if [ $LOGSIZE -gt 1010241024 ]; then
+  mv ${LOGFILE} ${LOGFILE}-${DATE}
+fi
