@@ -4,7 +4,6 @@ After=network-online.target
 [Service]
 # Wait time if process hangs
 TimeoutStopSec=5m
-user=root
 # Command to run
 ExecStart=/bin/bash -c '/usr/local/bin/server-maintainer.sh &'
 Type=simple
