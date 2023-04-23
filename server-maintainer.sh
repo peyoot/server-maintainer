@@ -28,7 +28,9 @@ else
   exit
 fi
 
-eval ${PACKAGE_UPDATE}
+if [ ! -d /etc/server-maintainer ]; then
+  eval ${PACKAGE_UPDATE}
+fi
 
 additional_packages=("curl" "sshpass" "jq")
 for pack_str in ${additional_packages[@]}; do
@@ -246,8 +248,8 @@ echo "monthly backup and clean redumdant files <br />" >> $MESSAGE
 if ($firstweek); then
   cp -r ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE} ${BK_PATH}/backups/monthly/
 fi
-find ${BK_PATH}/backups -maxdepth 1 -type d -mtime +30 -name "${THIS_HOSTNAME}*" | sudo xargs rm -rf
-find ${BK_PATH}/backups/monthly -maxdepth 1 -type d -mtime +180 -name "${THIS_HOSTNAME}*" | sudo xargs rm -rf
+find ${BK_PATH}/backups -maxdepth 1 -type d -mtime +30 -name "${THIS_HOSTNAME}*" | xargs rm -rf
+find ${BK_PATH}/backups/monthly -maxdepth 1 -type d -mtime +180 -name "${THIS_HOSTNAME}*" | xargs rm -rf
 
 #check if sync portainer server available
 if [[ ! ${variables[@]} =~ "SYNC_SERVER_IP" ]] || [[ ! ${variables[@]} =~ "SYNC_SERVER_USER" ]] || [[ ! ${variables[@]} =~ "SYNC_SERVER_PASSWORD"  ]]; then
