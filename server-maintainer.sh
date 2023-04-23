@@ -55,13 +55,20 @@ fi
 ####End of BLOCK1####
 
 
-####BLOCK2: This block read .env file and use variables in it ####
-FILENAME=.env
-#ops_abort=0
-echo "verify .env file"
+####BLOCK2: This block read configuration file and use variables in it ####
+FILENAME=/etc/server-maintainer/server-maintainer.conf
+#server-maintainer.conf have more priviledge than .env
+echo "verify configuration file"
+
 if [[ ! -f ${FILENAME} ]]; then
-  echo "couldn't find env file in current folder,abort!" | tee ${LOGFILE}
-  exit
+  echo "Couldn't find the server-maintainer.conf"
+  echo "now try .env in script path"
+  if [[ ! -f .env ]]; then
+    echo "couldn't find env file in current folder as well,abort!" | tee ${LOGFILE}
+    exit
+  else
+    FILENAME=.env
+  fi
 fi
 
 mapfile -t variables < <(grep -vE '^#|^$' ${FILENAME})
@@ -212,7 +219,7 @@ echo "backup volumes <br />" >> $MESSAGE
 rsync -az --delete --exclude={'backingFsBlockDev','metadata.db','portainer_data/*'} /var/lib/docker/volumes ${BK_PATH}/backups/docker_volumes
 sleep 1
 echo "pack tarball for portainer backup data and volumes <br />" >> $MESSAGE
-tar -zc -f ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/docker_volumes.tgz ${BK_PATH}/backups/docker_volumes
+tar -zc -f ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/docker_volumes.tgz -C ${BK_PATH}/backups/ docker_volumes
 echo "transfer backup tarball to bk_server1 <br />"  >> $MESSAGE
 if [[ ! ${variables[@]} =~ "BK_SERVER1_SSHPORT" ]]; then
   BK_SERVER1_SSHPORT=22
