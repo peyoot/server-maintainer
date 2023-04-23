@@ -1,7 +1,7 @@
 [Unit]
 Description=Run server-maintainer on schedule
 [Timer]
-OnCalendar=*-*-* 22:00:00
+OnCalendar=*-*-* 05:00:00
 Unit=server-maintainer.service
 Persistent=true
 [Install]
