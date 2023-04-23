@@ -72,6 +72,12 @@ if ((arr_length < 3)); then
 fi
 
 #echo "Check if env include key variables"
+
+if [[ ! ${variables[@]} =~ "BK_PATH" ]]; then
+  echo "No local backup path defined. Use default one: /var/local/server-maintainer"
+  BK_PATH=/var/local/server-maintainer
+fi
+
 if [[ ! ${variables[@]} =~ "BK_SERVER1_IP" ]]; then
   echo "missing key variable BK_SERVER1_IP. Abort"
   exit
@@ -153,18 +159,21 @@ echo "------------------------------------------------------------------<br /> "
 echo "<h3>Backup process log</h3>" >> $MESSAGE
 
 #prepare backup folder in current path
-SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
-cd $SCRIPTPATH
-if [ ! -d "${SCRIPTPATH}/backups" ]; then
-  install -o ${USER} -g ${USER} -d backups
+#SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+#cd $SCRIPTPATH
+if [ ! -d "${BK_PATH}" ]; then
+  mkdir -p ${BK_PATH}
 fi
-if [ ! -d "${SCRIPTPATH}/backups/monthly" ]; then
-  install -o ${USER} -g ${USER} -d backups/monthly
+if [ ! -d "${BK_PATH}/backups" ]; then
+  install -o ${USER} -g ${USER} -d ${BK_PATH}/backups
 fi
-if [ ! -d "${SCRIPTPATH}/backups/docker_volumes" ]; then
-  install -o ${USER} -g ${USER} -d backups/docker_volumes
+if [ ! -d "${BK_PATH}/backups/monthly" ]; then
+  install -o ${USER} -g ${USER} -d ${BK_PATH}/backups/monthly
 fi
-mkdir -p backups/${THIS_HOSTNAME}_${DATE}
+if [ ! -d "${BK_PATH}/backups/docker_volumes" ]; then
+  install -o ${USER} -g ${USER} -d ${BK_PATH}/backups/docker_volumes
+fi
+install -o ${USER} -g ${USER} -d ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}
 
 ####End of BLOCK3####
 
@@ -197,13 +206,13 @@ else
 fi
 
 echo "backup portainer configs which is a tar ball, not include volumes <br />"  >> $MESSAGE
-curl -s --connect-timeout 3600 -X POST -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' "${PORTAINER_URL}/api/backup" > backups/${THIS_HOSTNAME}_${DATE}/portainer-backup.tar.gz
+curl -s --connect-timeout 3600 -X POST -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' "${PORTAINER_URL}/api/backup" > ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/portainer-backup.tar.gz
 echo "backup volumes <br />" >> $MESSAGE
 #use rsync to sync volumes into the backup folder and then tarball it as a backup
-rsync -az --delete --exclude={'backingFsBlockDev','metadata.db','portainer_data/*'} /var/lib/docker/volumes backups/docker_volumes
+rsync -az --delete --exclude={'backingFsBlockDev','metadata.db','portainer_data/*'} /var/lib/docker/volumes ${BK_PATH}/backups/docker_volumes
 sleep 1
 echo "pack tarball for portainer backup data and volumes <br />" >> $MESSAGE
-tar -zc -f backups/${THIS_HOSTNAME}_${DATE}/docker_volumes.tgz backups/docker_volumes
+tar -zc -f ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/docker_volumes.tgz ${BK_PATH}/backups/docker_volumes
 echo "transfer backup tarball to bk_server1 <br />"  >> $MESSAGE
 if [[ ! ${variables[@]} =~ "BK_SERVER1_SSHPORT" ]]; then
   BK_SERVER1_SSHPORT=22
@@ -214,15 +223,15 @@ if [[ ! ${variables[@]} =~ "SYNC_SERVER_SSHPORT" ]]; then
 fi
 
 sshpass -p ${BK_SERVER1_PASSWORD} ssh -p ${BK_SERVER1_SSHPORT} -o StrictHostKeyChecking=no ${BK_SERVER1_USER}@${BK_SERVER1_IP} "mkdir -p remote-bk/${THIS_HOSTNAME}"
-sshpass -p ${BK_SERVER1_PASSWORD} rsync -az backups "-e ssh -p ${BK_SERVER1_SSHPORT} -o StrictHostKeyChecking=no" ${BK_SERVER1_USER}@${BK_SERVER1_IP}:/home/${BK_SERVER1_USER}/remote-bk/${THIS_HOSTNAME}/server-maintainer
+sshpass -p ${BK_SERVER1_PASSWORD} rsync -az ${BK_PATH}/backups "-e ssh -p ${BK_SERVER1_SSHPORT} -o StrictHostKeyChecking=no" ${BK_SERVER1_USER}@${BK_SERVER1_IP}:/home/${BK_SERVER1_USER}/remote-bk/${THIS_HOSTNAME}/server-maintainer
 
 #check redumdant backup
 echo "monthly backup and clean redumdant files <br />" >> $MESSAGE
 if ($firstweek); then
-  cp -r ${SCRIPTPATH}/backups/${THIS_HOSTNAME}_${DATE} backups/monthly/
+  cp -r ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE} ${BK_PATH}/backups/monthly/
 fi
-find $SCRIPTPATH/backups -maxdepth 1 -type d -mtime +30 -name "${THIS_HOSTNAME}*" | sudo xargs rm -rf
-find $SCRIPTPATH/backups/monthly -maxdepth 1 -type d -mtime +180 -name "${THIS_HOSTNAME}*" | sudo xargs rm -rf
+find ${BK_PATH}/backups -maxdepth 1 -type d -mtime +30 -name "${THIS_HOSTNAME}*" | sudo xargs rm -rf
+find ${BK_PATH}/backups/monthly -maxdepth 1 -type d -mtime +180 -name "${THIS_HOSTNAME}*" | sudo xargs rm -rf
 
 #check if sync portainer server available
 if [[ ! ${variables[@]} =~ "SYNC_SERVER_IP" ]] || [[ ! ${variables[@]} =~ "SYNC_SERVER_USER" ]] || [[ ! ${variables[@]} =~ "SYNC_SERVER_PASSWORD"  ]]; then
@@ -291,6 +300,7 @@ echo "Server Maintainer script have finished its job on ${DATE}!" | tee ${LOGFIL
 
 LOGSIZE=`ls -l ${LOGFILE} | awk '{ print $5 }'`
 
-if [ $LOGSIZE -gt 1010241024 ]; then
-  mv ${LOGFILE} ${LOGFILE}-${DATE}
+if [ $LOGSIZE -gt 10241024 ]; then
+  rm -rf ${LOGFILE}.1
+  mv ${LOGFILE} ${LOGFILE}.1
 fi
