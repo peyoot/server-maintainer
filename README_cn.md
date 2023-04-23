@@ -44,4 +44,8 @@
 注：备份服务器和同步服务器可以是同一个服务器，也可以不同
 ```
 
+FAQ:
+1. 如何在Centos或Openeuler下使用？
+请关掉selinux，否则系统服务调用时，同步备份可能会出错。将/etc/selinux/config中的SELINUX默认值enforcing改为permissive
+
 
