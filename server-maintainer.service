@@ -1,0 +1,13 @@
+[Unit]
+Description=Server maintainer service to report server status and backup portainer and it's running stack,volumes
+After=network-online.target
+[Service]
+# Wait time if process hangs
+TimeoutStopSec=2m
+# Command to run
+ExecStart=/bin/bash -c '/usr/local/bin/server-maintainer.sh &'
+Type=simple
+KillMode=process
+KillSignal=SIGINT
+[Install]
+WantedBy=multi-user.target
