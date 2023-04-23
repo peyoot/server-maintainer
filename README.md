@@ -10,9 +10,15 @@ You can run the project's scripts on one or more servers. To achieve the best ma
 3. All service volumes are managed by Portainer
 
 #### USAGE
-
-change env.sample file name to .env and also change it's content  with your server IP and password, etc
+You can either run it from script or install it as a systemd daemon.
+To run it manually as a tool, you need to have .env config file in the same path of server-maintainer.sh.
 run 'sudo ./server-maintainer.sh'
+
+To install it as daemon, just run the install.sh as root. you need to put the configuration in /etc/server-maintainer.conf.
+ 
+just modify the env.sample and rename it to .env if you just need manual tool. For systemd daemon, please copy the modified env.sample to /etc/server-maintainer/server-maintainer.conf after installation.
+
+your can modify server-maintainer.timer to have daemon run on your own schedule. (by default it run on 05:00:00 every day.) 
 
 #### Server health monitoring
 This project script will detect the health status of the server: including hard disk and memory, CPU utilization and other data, and send a report by email.
@@ -22,15 +28,16 @@ The main function of this project script is to back up the specified container s
 
 
 #### Source server directory structure
-Generally, there will be a server-maintainer project directory on the source server, as well as a docker directory, and portainer is located in the docker directory.
-On the target backup or synchronization server, the structure can be the same as above, but with an additional remote-bk as the backup path.
+For manually run, you can git clone this project to any path you like.
+The script will have a local backup path BK_PATH, it will transfer or sync backups to remote backup server's remote-bk folder.
+here's an example of related folder/files after installation.
 
 ```
-~/git/tools/server-maintainer
-               |__server-maintainer.sh
-			   |__.env
-			   |__backups
-			        |__monthly
+/usr/local/bin/server-maintainer.sh
+/etc/server-maintainer/server-maintainer.conf
+/var/local/server-maintainer
+		   |__backups
+		        |__monthly
 ~/docker
   |__ portainer
         |__ docker-compose.yml

@@ -3,6 +3,7 @@ echo 'The script will install the server-maintainer as a tool called by system t
 FILENAME=/etc/server-maintainer/server-maintainer.conf
 mkdir -p /etc/server-maintainer
 cp env.sample /etc/server-maintainer/
+cp README.md /etc/server-maintainer/
 echo "verify configuration file"
 if [[ ! -f ${FILENAME} ]]; then
   echo 'you need define your own configuration file first. Please take env.sample as reference and place it here: /etc/server-maintainer.conf'
