@@ -4,6 +4,7 @@
 ## check if bc package have been installed, if not simply sudo apt install bc
 ## your need to chage necessary parameters in env.example file and save as .env
 LOGFILE="/var/log/server_maintainer.log"
+MANUALLY_RUN=false
 has_root() {
     if [[ $EUID -ne 0 ]]; then
         echo "you need root privilege to run the script" | tee ${LOGFILE}
@@ -17,11 +18,11 @@ has_root
 THIS_HOSTNAME=$(hostname)
 OS_RELEASE=$(awk -F= '/^NAME/{gsub(/"/, "", $2);print $2}' /etc/os-release)
 if [[ "$OS_RELEASE" =~ "Ubuntu" ]] || [[ "$OS_RELEASE" =~ "Debian" ]]; then
-  PACKAGE_UPDATE="sudo apt -qq update"
-  PACKAGE_INSTALL_BASE="sudo apt -qq -y install "
+  PACKAGE_UPDATE="apt -qq update"
+  PACKAGE_INSTALL_BASE="apt -qq -y install "
 elif [[ "$OS_RELEASE" =~ "openEuler" ]] || [[ "$OS_RELEASE" =~ "Centos" ]]; then
-  PACKAGE_UPDATE="sudo dnf -q check-update"
-  PACKAGE_INSTALL_BASE="sudo dnf -q -y install "
+  PACKAGE_UPDATE="dnf -q check-update"
+  PACKAGE_INSTALL_BASE="dnf -q -y install "
 else
   echo "This distribution haven't been test yet" | tee ${LOGFILE}
   exit
@@ -67,6 +68,7 @@ if [[ ! -f ${FILENAME} ]]; then
     echo "couldn't find env file in current folder as well,abort!" | tee ${LOGFILE}
     exit
   else
+    MANUALLY_RUN=true
     FILENAME=.env
   fi
 fi
@@ -168,20 +170,27 @@ echo "<h3>Backup process log</h3>" >> $MESSAGE
 #prepare backup folder in current path
 #SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 #cd $SCRIPTPATH
-if [ ! -d "${BK_PATH}" ]; then
+if [[ ! -d "${BK_PATH}" ]]; then
   mkdir -p ${BK_PATH}
 fi
-if [ ! -d "${BK_PATH}/backups" ]; then
+if [[ ! -d "${BK_PATH}/backups" ]] && (${MANUALLY_RUN}); then
   install -o ${USER} -g ${USER} -d ${BK_PATH}/backups
 fi
-if [ ! -d "${BK_PATH}/backups/monthly" ]; then
+if [[ ! -d "${BK_PATH}/backups/monthly" ]] && (${MANUALLY_RUN}); then
   install -o ${USER} -g ${USER} -d ${BK_PATH}/backups/monthly
+else
+  mkdir -p ${BK_PATH}/backups/monthly
 fi
-if [ ! -d "${BK_PATH}/backups/docker_volumes" ]; then
+if [[ ! -d "${BK_PATH}/backups/docker_volumes" ]] && (${MANUALLY_RUN}); then
   install -o ${USER} -g ${USER} -d ${BK_PATH}/backups/docker_volumes
+else
+  mkdir -p ${BK_PATH}/backups/docker_volumes
 fi
-install -o ${USER} -g ${USER} -d ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}
-
+if (${MANUALLY_RUN}); then
+  install -o ${USER} -g ${USER} -d ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}
+else
+  mkdir -p ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}
+fi
 ####End of BLOCK3####
 
 ####BLOCK4: portainer backup####
