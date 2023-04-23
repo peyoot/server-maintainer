@@ -75,6 +75,10 @@ if [[ ! -f ${FILENAME} ]]; then
   fi
 fi
 
+if [[ ! -f ${FILENAME} ]]; then
+  echo "No valid configuration file! Abort!"
+  exit
+fi
 mapfile -t variables < <(grep -vE '^#|^$' ${FILENAME})
 arr_length=${#variables[@]}
 if ((arr_length < 3)); then
