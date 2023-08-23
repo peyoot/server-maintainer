@@ -173,11 +173,7 @@ do
 done
 
 site_num=${#site_vars[@]}
-echo "site_vas length is $site_num"
-if ((site_num < 1)); then
-  echo "no sites in dnmp to be backup.Abort" 
-  exit
-fi
+echo "There are ${site_num}  sites to be backup in dnmp."
 
 
 
@@ -268,25 +264,11 @@ rsync -az --delete --exclude={'backingFsBlockDev','metadata.db','portainer_data/
 sleep 1
 echo "pack tarball for portainer backup data and volumes <br />" >> $MESSAGE
 tar -zc -f ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/docker_volumes.tgz -C ${BK_PATH}/backups/ docker_volumes
-echo "transfer backup tarball to bk_server1 <br />"  >> $MESSAGE
-if [[ ! ${variables[@]} =~ "BK_SERVER1_SSHPORT" ]]; then
-  BK_SERVER1_SSHPORT=22
-fi
 
 if [[ ! ${variables[@]} =~ "SYNC_SERVER_SSHPORT" ]]; then
   SYNC_SERVER_SSHPORT=22
 fi
 
-sshpass -p ${BK_SERVER1_PASSWORD} ssh -p ${BK_SERVER1_SSHPORT} -o StrictHostKeyChecking=no ${BK_SERVER1_USER}@${BK_SERVER1_IP} "mkdir -p remote-bk/${THIS_HOSTNAME}"
-sshpass -p ${BK_SERVER1_PASSWORD} rsync -az ${BK_PATH}/backups "-e ssh -p ${BK_SERVER1_SSHPORT} -o StrictHostKeyChecking=no" ${BK_SERVER1_USER}@${BK_SERVER1_IP}:/home/${BK_SERVER1_USER}/remote-bk/${THIS_HOSTNAME}/server-maintainer
-
-#check redumdant backup
-echo "monthly backup and clean redumdant files <br />" >> $MESSAGE
-if ($firstweek); then
-  cp -r ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE} ${BK_PATH}/backups/monthly/
-fi
-find ${BK_PATH}/backups -maxdepth 1 -type d -mtime +30 -name "${THIS_HOSTNAME}*" | xargs rm -rf
-find ${BK_PATH}/backups/monthly -maxdepth 1 -type d -mtime +180 -name "${THIS_HOSTNAME}*" | xargs rm -rf
 
 #check if sync portainer server available
 if [[ ! ${variables[@]} =~ "SYNC_SERVER_IP" ]] || [[ ! ${variables[@]} =~ "SYNC_SERVER_USER" ]] || [[ ! ${variables[@]} =~ "SYNC_SERVER_PASSWORD"  ]]; then
@@ -304,41 +286,6 @@ fi
 
 ####End of Block4####
 
-####Block5: web content and  database backup (volumes back up have include database backup, just double secure important application####
-#backup web content in dnmp_www
-#check if web container is working
-sleep 10
-docker ps |grep nginx &> /dev/null
-if [ $? ]; then
-  for sites in "${site_var[@]}"
-  do
-    IFS=',' read -r site site_db db_host <<< "$sites"
-
-    echo "site: $site"
-    echo "site_db: $site_db"
-    echo "db_host: $db_host"
-    docker exec -t nginx bash -c "if [ ! -d "/dump" ] ; then mkdir -p /dump ; tar -zcf /dump/${site}-${DATE}.tgz -C /www/ ${site}"
-    docker cp nginx:/dump/${sit}-${DATE}.tgz $SCRIPTPATH/backups/$DATE/${site}/ 
-
-    if [[ $db_host == mysql* ]]
-    then
-      docker ps | grep ${db_host} &> /dev/null
-      if [ $? ]; then
-        docker exec -t ${db_host} bash -c "rm -fr /dump ; mkdir /dump ; mysqldump -h 127.0.0.1 -u ${db_user} -p${db_password} ${site_db} > /dump/${site_db}-${DATE}.sql"
-        docker cp mysql:/dump/. $SCRIPTPATH/backups/$DATE/${site}/
-        echo "mysql database: eccee have been successfully exported" >> $MESSAGE
-      else
-        echo "container mysql in not running,backup fail <br />" >> $MESSAGE
-
-      fi
-    fi
-  done
-#clearn dump file in container nginx, we only need clean one time because we dump tgz for each site
-docker exec -t nginx sh -c "rm -rf /dump"
-
-fi
-
-
 
 ##pack all data to the day's backup package, and delete old backup(7days before)
 #tar -zc -f backups/$DATE.tgz backups/$DATE
@@ -349,7 +296,6 @@ fi
 #echo "all availabe backup have been packed" >> $MESSAGE
 
 
-####End of Block5####
 #resume stacks
 sleep 10
 if [[ ! "${stack_arr}" == "" ]]; then
@@ -367,6 +313,68 @@ if [[ ! "${running_containers}" == "" ]]; then
   done
   echo "All containers back to work now <br />"  >> $MESSAGE
 fi
+
+
+####Block5: web content and  database backup (volumes back up have include database backup, just double secure important application####
+#backup web content in dnmp_www
+#check if web container is working
+sleep 10
+echo "now backup web sites in dnmp"
+docker ps |grep nginx &> /dev/null
+if [ $? -eq 0 ]; then
+  for sites in "${site_var[@]}"
+  do
+    IFS=',' read -r site site_db db_host <<< "$sites"
+
+    echo "site: $site"
+    echo "site_db: $site_db"
+    echo "db_host: $db_host"
+    docker exec -t nginx bash -c "if [ ! -d "/dump" ] ; then mkdir -p /dump ; tar -zcf /dump/${site}-${DATE}.tgz -C /www/ ${site}"
+    docker cp nginx:/dump/${sit}-${DATE}.tgz ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/${site}/ 
+
+    if [[ $db_host == mysql* ]]
+    then
+      docker ps | grep ${db_host} &> /dev/null
+      if [ $? -eq 0 ]; then
+        docker exec -t ${db_host} bash -c "rm -fr /dump ; mkdir /dump ; mysqldump -h 127.0.0.1 -u ${db_user} -p${db_password} ${site_db} > /dump/${site_db}-${DATE}.sql"
+        docker cp mysql:/dump/.  ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/${site}/
+        echo "mysql database: eccee have been successfully exported" >> $MESSAGE
+      else
+        echo "container mysql in not running,backup fail <br />" >> $MESSAGE
+
+      fi
+    fi
+  done
+#clearn dump file in container nginx, we only need clean one time because we dump tgz for each site
+docker exec -t nginx sh -c "rm -rf /dump"
+
+fi
+
+
+echo "transfer backup tarball to bk_server1 <br />"  >> $MESSAGE
+if [[ ! ${variables[@]} =~ "BK_SERVER1_SSHPORT" ]]; then
+  BK_SERVER1_SSHPORT=22
+fi
+
+sshpass -p ${BK_SERVER1_PASSWORD} ssh -p ${BK_SERVER1_SSHPORT} -o StrictHostKeyChecking=no ${BK_SERVER1_USER}@${BK_SERVER1_IP} "mkdir -p remote-bk/${THIS_HOSTNAME}"
+sshpass -p ${BK_SERVER1_PASSWORD} rsync -az ${BK_PATH}/backups "-e ssh -p ${BK_SERVER1_SSHPORT} -o StrictHostKeyChecking=no" ${BK_SERVER1_USER}@${BK_SERVER1_IP}:/home/${BK_SERVER1_USER}/remote-bk/${THIS_HOSTNAME}/server-maintainer
+
+#check redumdant backup
+echo "monthly backup and clean redumdant files <br />" >> $MESSAGE
+if ($firstweek); then
+  cp -r ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE} ${BK_PATH}/backups/monthly/
+fi
+find ${BK_PATH}/backups -maxdepth 1 -type d -mtime +30 -name "${THIS_HOSTNAME}*" | xargs rm -rf
+find ${BK_PATH}/backups/monthly -maxdepth 1 -type d -mtime +180 -name "${THIS_HOSTNAME}*" | xargs rm -rf
+
+
+####End of Block5####
+
+
+
+
+
+
 ##### call sendemail
 sendemail -f ${SMTP_ACCOUNT} -t ${EMAIL_TO} -s ${SMTP_SERVER} -u ${SUBJECT} -o tls=no -o message-content-type=html -o message-charset=utf8 -o message-file=${MESSAGE} -xu ${SMTP_ACCOUNT} -xp ${SMTP_PASSWORD}
 rm /tmp/Mail.out
