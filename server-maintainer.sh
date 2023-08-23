@@ -55,6 +55,8 @@ if [ $[${WEEK}%4] = 0 ]; then
 else
   firstweek=false
 fi
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 ####End of BLOCK1####
 
 
@@ -90,7 +92,11 @@ fi
 
 if [[ ! ${variables[@]} =~ "BK_PATH" ]]; then
   echo "No local backup path defined. Use default one: /var/local/server-maintainer"
-  BK_PATH=/var/local/server-maintainer
+  if (${MANUALLY_RUN}); then
+    BK_PATH=$SCRIPTPATH
+  else
+    BK_PATH=/var/local/server-maintainer
+  fi
 fi
 
 if [[ ! ${variables[@]} =~ "BK_SERVER1_IP" ]]; then
@@ -158,9 +164,13 @@ for var in "${variables[@]}"
 do
    if [[ $var == SITE* ]]
    then
-      site_vars+=("$var")
-   fi  
-done 
+      # Remove chars before =
+      new_var=${var#*=}
+      # Add to array
+      site_vars+=("$new_var")
+
+   fi
+done
 
 site_num=${#site_vars[@]}
 echo "site_vas length is $site_num"
@@ -197,6 +207,8 @@ echo "<h3>Backup process log</h3>" >> $MESSAGE
 #prepare backup folder in current path
 #SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 #cd $SCRIPTPATH
+
+
 if [[ ! -d "${BK_PATH}" ]]; then
   mkdir -p ${BK_PATH}
 fi
@@ -293,18 +305,38 @@ fi
 ####End of Block4####
 
 ####Block5: web content and  database backup (volumes back up have include database backup, just double secure important application####
-#backup web content in dnmp/www
+#backup web content in dnmp_www
+#check if web container is working
+sleep 10
+docker ps |grep nginx &> /dev/null
+if [ $? ]; then
+  for sites in "${site_var[@]}"
+  do
+    IFS=',' read -r site site_db db_host <<< "$sites"
 
-#backup docker mysql8
-#docker ps | grep 'mysql' &> /dev/null
-#if [ $? ]; then
-#  docker exec -t mysql bash -c "rm -fr /dump ; mkdir /dump ; mysqldump -h 127.0.0.1 -u root -ppassword eccee > /dump/eccee-${DATE}.sql"
-#  docker cp mysql:/dump/. $SCRIPTPATH/backups/$DATE
-#  echo "mysql database: eccee have been successfully exported" >> $MESSAGE
-#else
-#  echo "container mysql in not running,backup fail <br />" >> $MESSAGE
-#
-#fi
+    echo "site: $site"
+    echo "site_db: $site_db"
+    echo "db_host: $db_host"
+    docker exec -t nginx bash -c "if [ ! -d "/dump" ] ; then mkdir -p /dump ; tar -zcf /dump/${site}-${DATE}.tgz -C /www/ ${site}"
+    docker cp nginx:/dump/${sit}-${DATE}.tgz $SCRIPTPATH/backups/$DATE/${site}/ 
+
+    if [[ $db_host == mysql* ]]
+    then
+      docker ps | grep ${db_host} &> /dev/null
+      if [ $? ]; then
+        docker exec -t ${db_host} bash -c "rm -fr /dump ; mkdir /dump ; mysqldump -h 127.0.0.1 -u ${db_user} -p${db_password} ${site_db} > /dump/${site_db}-${DATE}.sql"
+        docker cp mysql:/dump/. $SCRIPTPATH/backups/$DATE/${site}/
+        echo "mysql database: eccee have been successfully exported" >> $MESSAGE
+      else
+        echo "container mysql in not running,backup fail <br />" >> $MESSAGE
+
+      fi
+    fi
+  done
+#clearn dump file in container nginx, we only need clean one time because we dump tgz for each site
+docker exec -t nginx sh -c "rm -rf /dump"
+
+fi
 
 
 
