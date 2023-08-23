@@ -150,6 +150,27 @@ echo "use mapfile to define var"
 for v in "${variables[@]}"; do 
   eval ${v}
 done
+
+
+#prepare sites of dnmp that need backup
+site_vars=()
+for var in "${variables[@]}"
+do
+   if [[ $var == SITE* ]]
+   then
+      site_vars+=("$var")
+   fi  
+done 
+
+site_num=${#site_vars[@]}
+echo "site_vas length is $site_num"
+if ((site_num < 1)); then
+  echo "no sites in dnmp to be backup.Abort" 
+  exit
+fi
+
+
+
 ####End of BLOCK2####
 
 ####BLOCK3: check system status and prepare Email harder
