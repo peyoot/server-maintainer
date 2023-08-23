@@ -27,7 +27,8 @@
 一般地，源服务器上会有需要备份的docker内容，比如~/docker/portainer, docker卷等。这些待定期备份的目标文件。
 作为工具手动运行时，只需把配置文件和server-maintainer.sh放在同一个文件夹即可。
 如果安装server-maintainer为服务,则server-maintainer.sh被安装到/usr/local/bin下，而配置文件则位于/etc/server-maintainer下。
-而目标备份或同步服务器上，用~/remote-bk作为备份路径。
+备份过程中，脚本会在脚本文件目录下创建临时备份文件夹，以供打包使用。本地打包的备份文件最终会上传到远程备份服务器或同步服务器的~/remote-bk这个目录下。
+
 ```
 独立工具使用时的目录结构：
 ~/git/tools/server-maintainer
