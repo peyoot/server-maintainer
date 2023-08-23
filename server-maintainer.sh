@@ -322,22 +322,24 @@ sleep 10
 echo "now backup web sites in dnmp"
 docker ps |grep nginx &> /dev/null
 if [ $? -eq 0 ]; then
-  for sites in "${site_var[@]}"
+  for sites in "${site_vars[@]}"
   do
-    IFS=',' read -r site site_db db_host <<< "$sites"
+    IFS=',' read -r site site_db db_host db_user db_password <<< "$sites"
 
     echo "site: $site"
     echo "site_db: $site_db"
     echo "db_host: $db_host"
-    docker exec -t nginx bash -c "if [ ! -d "/dump" ] ; then mkdir -p /dump ; tar -zcf /dump/${site}-${DATE}.tgz -C /www/ ${site}"
-    docker cp nginx:/dump/${sit}-${DATE}.tgz ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/${site}/ 
+    echo "db_user: $db_user"
+    echo "db_password: $db_password"
+    docker exec -t -e site=$site -e hostdate=$DATE nginx sh -c "if [ ! -d /dump ] ; then mkdir -p /dump ; fi;  tar -zcf /dump/${site}-${hostdate}.tgz -C /www/ ${site}"
+    docker cp nginx:/dump/${site}-${hostdate}.tgz ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/${site}/ 
 
     if [[ $db_host == mysql* ]]
     then
       docker ps | grep ${db_host} &> /dev/null
       if [ $? -eq 0 ]; then
-        docker exec -t ${db_host} bash -c "rm -fr /dump ; mkdir /dump ; mysqldump -h 127.0.0.1 -u ${db_user} -p${db_password} ${site_db} > /dump/${site_db}-${DATE}.sql"
-        docker cp mysql:/dump/.  ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/${site}/
+        docker exec -t -e site_db=$site_db -e db_user=$db_user -e db_password=$db_password -e hostdate=${DATE} ${db_host} bash -c "rm -fr /dump ; mkdir /dump ; mysqldump -h 127.0.0.1 -u ${db_user} -p${db_password} ${site_db} > /dump/${site_db}-${hostdate}.sql"
+        docker cp  mysql:/dump/.  ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/${site}/
         echo "mysql database: eccee have been successfully exported" >> $MESSAGE
       else
         echo "container mysql in not running,backup fail <br />" >> $MESSAGE
@@ -347,10 +349,11 @@ if [ $? -eq 0 ]; then
   done
 #clearn dump file in container nginx, we only need clean one time because we dump tgz for each site
 docker exec -t nginx sh -c "rm -rf /dump"
-
+else
+  echo "contianer nginx seems not up yet!"
 fi
 
-
+echo "now transfer backup tarball to bk_server1"
 echo "transfer backup tarball to bk_server1 <br />"  >> $MESSAGE
 if [[ ! ${variables[@]} =~ "BK_SERVER1_SSHPORT" ]]; then
   BK_SERVER1_SSHPORT=22
@@ -362,6 +365,7 @@ sshpass -p ${BK_SERVER1_PASSWORD} rsync -az ${BK_PATH}/backups "-e ssh -p ${BK_S
 #check redumdant backup
 echo "monthly backup and clean redumdant files <br />" >> $MESSAGE
 if ($firstweek); then
+  echo "first week flag toggled"
   cp -r ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE} ${BK_PATH}/backups/monthly/
 fi
 find ${BK_PATH}/backups -maxdepth 1 -type d -mtime +30 -name "${THIS_HOSTNAME}*" | xargs rm -rf
