@@ -223,9 +223,13 @@ else
 fi
 if (${MANUALLY_RUN}); then
   install -o ${USER} -g ${USER} -d ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}
+  install -o ${USER} -g ${USER} -d ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/dnmp_configs
 else
-  mkdir -p ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}
+  mkdir -p ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/dnmp_configs
 fi
+
+
+
 ####End of BLOCK3####
 
 ####BLOCK4: portainer backup####
@@ -358,7 +362,11 @@ if [ $? -eq 0 ]; then
     tar -zcf ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/${site}/${site}_${DATE}.tgz -C ${DNMP_WWW} ${site}
   done
 #clearn dump file in container mysql, we only need clean one time because we dump tgz for each site
-#docker exec mysql bash -c "rm -rf /dump"
+docker exec mysql bash -c "rm -rf /dump"
+
+#backup nignx config
+tar -zcf  ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/dnmp_configs/services_${DATE}.tgz -C ${DNMP_SERVICES} .
+
 else
   echo "contianer nginx seems not up yet!"
 fi
