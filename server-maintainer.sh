@@ -386,9 +386,10 @@ if ($firstweek); then
   echo "first week flag toggled"
   cp -r ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE} ${BK_PATH}/backups/monthly/
 fi
-find ${BK_PATH}/backups -maxdepth 1 -type d -mtime +30 -name "${THIS_HOSTNAME}*" | xargs rm -rf
+find ${BK_PATH}/backups -maxdepth 1 -type d -mtime +32 -name "${THIS_HOSTNAME}*" | xargs rm -rf
 find ${BK_PATH}/backups/monthly -maxdepth 1 -type d -mtime +180 -name "${THIS_HOSTNAME}*" | xargs rm -rf
 
+sshpass -p ${BK_SERVER1_PASSWORD} ssh -p ${BK_SERVER1_SSHPORT} -o StrictHostKeyChecking=no ${BK_SERVER1_USER}@${BK_SERVER1_IP} "find remote-bk/${THIS_HOSTNAME}/server-maintainer/backups -maxdepth 1 -type d -mtime +32 -name \"${THIS_HOSTNAME}*\" | xargs rm -rf"
 
 ####End of Block5####
 
