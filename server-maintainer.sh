@@ -326,29 +326,39 @@ if [ $? -eq 0 ]; then
   do
     IFS=',' read -r site site_db db_host db_user db_password <<< "$sites"
 
+
     echo "site: $site"
     echo "site_db: $site_db"
     echo "db_host: $db_host"
     echo "db_user: $db_user"
     echo "db_password: $db_password"
-    docker exec -t -e site=$site -e hostdate=$DATE nginx sh -c "if [ ! -d /dump ] ; then mkdir -p /dump ; fi;  tar -zcf /dump/${site}-${hostdate}.tgz -C /www/ ${site}"
-    docker cp nginx:/dump/${site}-${hostdate}.tgz ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/${site}/ 
+    hostdate=${DATE}
+    echo "today is ${hostdate}"
 
+    if (${MANUALLY_RUN}); then
+      install -o ${USER} -g ${USER} -d ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/${site}
+    else
+      mkdir -p ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/${site}
+    fi
+
+#    docker exec -t -e site=$site -e hostdate=$DATE nginx sh -c "if [ ! -d /dump ] ; then mkdir -p /dump ; fi;  tar -zcf /dump/${site}-${hostdate}.tgz -C /www/ ${site}"
+#    docker cp nginx:/dump/${site}-${DATE}.tgz ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/${site}/ 
     if [[ $db_host == mysql* ]]
     then
       docker ps | grep ${db_host} &> /dev/null
       if [ $? -eq 0 ]; then
-        docker exec -t -e site_db=$site_db -e db_user=$db_user -e db_password=$db_password -e hostdate=${DATE} ${db_host} bash -c "rm -fr /dump ; mkdir /dump ; mysqldump -h 127.0.0.1 -u ${db_user} -p${db_password} ${site_db} > /dump/${site_db}-${hostdate}.sql"
-        docker cp  mysql:/dump/.  ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/${site}/
+        docker exec -e site_db=$site_db -e db_user=$db_user -e db_password=$db_password -e hostdate=${DATE} ${db_host} bash -c 'if [ ! -d "/dump" ]; then mkdir /dump; fi;  mysqldump -h 127.0.0.1 -u ${db_user} -p${db_password} ${site_db} > /dump/${site_db}_${hostdate}.sql '
+        docker cp  mysql:/dump/${site_db}_${DATE}.sql  ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/${site}/
         echo "mysql database: eccee have been successfully exported" >> $MESSAGE
       else
         echo "container mysql in not running,backup fail <br />" >> $MESSAGE
 
       fi
     fi
+    tar -zcf ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/${site}/${site}_${DATE}.tgz -C ${DNMP_WWW} ${site}
   done
-#clearn dump file in container nginx, we only need clean one time because we dump tgz for each site
-docker exec -t nginx sh -c "rm -rf /dump"
+#clearn dump file in container mysql, we only need clean one time because we dump tgz for each site
+#docker exec mysql bash -c "rm -rf /dump"
 else
   echo "contianer nginx seems not up yet!"
 fi
