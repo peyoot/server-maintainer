@@ -99,16 +99,8 @@ if [[ ! ${variables[@]} =~ "BK_PATH" ]]; then
   fi
 fi
 
-if [[ ! ${variables[@]} =~ "BK_SERVER1_IP" ]]; then
-  echo "missing key variable BK_SERVER1_IP. Abort"
-  exit
-fi
-if [[ ! ${variables[@]} =~ "BK_SERVER1_USER" ]]; then
-  echo "missing key variable BK_SERVER1_USER. Abort"
-  exit
-fi
-if [[ ! ${variables[@]} =~ "BK_SERVER1_PASSWORD" ]]; then
-  echo "missing key variable BK_SERVER1_PASSWORD. Abort"
+if [[ ! ${variables[@]} =~ "BK_SERVER1" ]]; then
+  echo "missing key variable BK_SERVER1. Abort"
   exit
 fi
 if [[ ! ${variables[@]} =~ "SMTP_SERVER" ]]; then
@@ -174,6 +166,24 @@ done
 
 site_num=${#site_vars[@]}
 echo "There are ${site_num}  sites to be backup in dnmp."
+
+server_vars=()
+for s_var in "${variables[@]}"
+do
+   if [[ $s_var == BK_SERVER* ]]
+   then
+      # Remove chars before =
+      ns_var=${s_var#*=}
+      # Add to array
+      server_vars+=("$ns_var")
+
+   fi
+done
+
+server_num=${#server_vars[@]}
+echo "There are ${server_num} backup servers."
+
+
 
 
 
@@ -331,11 +341,11 @@ if [ $? -eq 0 ]; then
     IFS=',' read -r site site_db db_host db_user db_password <<< "$sites"
 
 
-    echo "site: $site"
-    echo "site_db: $site_db"
-    echo "db_host: $db_host"
-    echo "db_user: $db_user"
-    echo "db_password: $db_password"
+#    echo "site: $site"
+#    echo "site_db: $site_db"
+#    echo "db_host: $db_host"
+#    echo "db_user: $db_user"
+#    echo "db_password: $db_password"
     hostdate=${DATE}
     echo "today is ${hostdate}"
 
@@ -371,14 +381,29 @@ else
   echo "contianer nginx seems not up yet!"
 fi
 
-echo "now transfer backup tarball to bk_server1"
-echo "transfer backup tarball to bk_server1 <br />"  >> $MESSAGE
-if [[ ! ${variables[@]} =~ "BK_SERVER1_SSHPORT" ]]; then
-  BK_SERVER1_SSHPORT=22
-fi
+echo " now prepare bk_server credentials"
+for server in "${server_vars[@]}"
+do
+  IFS=',' read -r bk_server_ip bk_server_port bk_server_user bk_server_password <<< "$server"
+#  echo "bk_server_ip: $bk_server_ip"
+#  echo "bk_server_port: $bk_server_port"
+#  echo "bk_server_user: $bk_server_user"
+#  echo "bk_server_password: $bk_server_password"
+  echo "now transfer backup tarball to bk_server1"
+  echo "transfer backup tarball to $bk_server_ip <br />"  >> $MESSAGE
 
-sshpass -p ${BK_SERVER1_PASSWORD} ssh -p ${BK_SERVER1_SSHPORT} -o StrictHostKeyChecking=no ${BK_SERVER1_USER}@${BK_SERVER1_IP} "mkdir -p remote-bk/${THIS_HOSTNAME}"
-sshpass -p ${BK_SERVER1_PASSWORD} rsync -az ${BK_PATH}/backups "-e ssh -p ${BK_SERVER1_SSHPORT} -o StrictHostKeyChecking=no" ${BK_SERVER1_USER}@${BK_SERVER1_IP}:/home/${BK_SERVER1_USER}/remote-bk/${THIS_HOSTNAME}/server-maintainer
+  if [[ "$bk_server_port" == "" ]]; then
+    $bk_serve_port=22
+  fi
+
+
+  sshpass -p ${bk_server_password} ssh -p ${bk_server_port} -o StrictHostKeyChecking=no ${bk_server_user}@${bk_server_ip} "mkdir -p remote-bk/${THIS_HOSTNAME}"
+  sshpass -p ${bk_server_password} rsync -az ${BK_PATH}/backups "-e ssh -p ${bk_server_port} -o StrictHostKeyChecking=no" ${bk_server_user}@${bk_server_ip}:/home/${bk_server_user}/remote-bk/${THIS_HOSTNAME}/server-maintainer
+
+  sshpass -p ${bk_server_password} ssh -p ${bk_server_port} -o StrictHostKeyChecking=no ${bk_server_user}@${bk_server_ip} "find remote-bk/${THIS_HOSTNAME}/server-maintainer/backups -maxdepth 1 -type d -mtime +32 -name \"${THIS_HOSTNAME}*\" | xargs rm -rf"
+
+done
+
 
 #check redumdant backup
 echo "monthly backup and clean redumdant files <br />" >> $MESSAGE
@@ -389,7 +414,6 @@ fi
 find ${BK_PATH}/backups -maxdepth 1 -type d -mtime +32 -name "${THIS_HOSTNAME}*" | xargs rm -rf
 find ${BK_PATH}/backups/monthly -maxdepth 1 -type d -mtime +180 -name "${THIS_HOSTNAME}*" | xargs rm -rf
 
-sshpass -p ${BK_SERVER1_PASSWORD} ssh -p ${BK_SERVER1_SSHPORT} -o StrictHostKeyChecking=no ${BK_SERVER1_USER}@${BK_SERVER1_IP} "find remote-bk/${THIS_HOSTNAME}/server-maintainer/backups -maxdepth 1 -type d -mtime +32 -name \"${THIS_HOSTNAME}*\" | xargs rm -rf"
 
 ####End of Block5####
 
