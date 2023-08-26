@@ -253,18 +253,19 @@ echo "Running stack ID list:  ${stack_arr} <br />" >> $MESSAGE
 #echo "stack_arr array is ${stack_arr[@]}"
 if [[ ! "${stack_arr}" == "" ]]; then
   for s in "${stack_arr[@]}"; do
-    curl -s --connect-timeout 300 -X POST "${PORTAINER_URL}/api/stacks/${s}/stop" -H "X-API-KEY:${PORTAINER_API_KEY}"
+    curl -s -o /dev/null --connect-timeout 300 -X POST "${PORTAINER_URL}/api/stacks/${s}/stop" -H "X-API-KEY:${PORTAINER_API_KEY}"
   done
 else
   echo "no runing stacks <br />" >> $MESSAGE
 fi
 sleep 10
+#echo "check running solo containers"
 running_containers=($(curl -s --connect-timeout 300 -X GET "${PORTAINER_URL}/api/endpoints/${local_endpoint}/docker/containers/json" -H "X-API-KEY:${PORTAINER_API_KEY}" | jq '.[]|select(.Names!=["/portainer"])' | jq -r '.Id'))
 echo "Running solo container ID list: ${running_containers} <br />" >> $MESSAGE
 
 if [[ ! "${running_containers}" == "" ]]; then
   for d in "${running_containers[@]}"; do
-    curl -s --connect-timeout 300 -X POST "${PORTAINER_URL}/api/endpoints/${local_endpoint}/docker/containers/${d}/stop" -H "X-API-KEY:${PORTAINER_API_KEY}"
+    curl -s -o /dev/null --connect-timeout 300 -X POST "${PORTAINER_URL}/api/endpoints/${local_endpoint}/docker/containers/${d}/stop" -H "X-API-KEY:${PORTAINER_API_KEY}"
   done
 else
   echo "no runing solo containers <br />" >> $MESSAGE
@@ -314,7 +315,7 @@ fi
 sleep 10
 if [[ ! "${stack_arr}" == "" ]]; then
   for s in "${stack_arr[@]}"; do
-    curl -s --connect-timeout 300 -X POST "${PORTAINER_URL}/api/stacks/${s}/start" -H "X-API-KEY:${PORTAINER_API_KEY}"
+    curl -s -o /dev/null --connect-timeout 300 -X POST "${PORTAINER_URL}/api/stacks/${s}/start" -H "X-API-KEY:${PORTAINER_API_KEY}"
   done
   echo "stacks are all back to work now <br />"  >> $MESSAGE
 fi
@@ -323,7 +324,7 @@ sleep 5
 
 if [[ ! "${running_containers}" == "" ]]; then
   for d in "${running_containers[@]}"; do
-    curl -s --connect-timeout 300 -X POST "${PORTAINER_URL}/api/endpoints/${local_endpoint}/docker/containers/${d}/start" -H "X-API-KEY:${PORTAINER_API_KEY}"
+    curl -s -o /dev/null --connect-timeout 300 -X POST "${PORTAINER_URL}/api/endpoints/${local_endpoint}/docker/containers/${d}/start" -H "X-API-KEY:${PORTAINER_API_KEY}"
   done
   echo "All containers back to work now <br />"  >> $MESSAGE
 fi
