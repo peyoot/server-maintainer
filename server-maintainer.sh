@@ -165,7 +165,7 @@ do
 done
 
 site_num=${#site_vars[@]}
-echo "There are ${site_num}  sites to be backup in dnmp."
+#echo "There are ${site_num}  sites to be backup in dnmp."
 
 server_vars=()
 for s_var in "${variables[@]}"
@@ -181,7 +181,7 @@ do
 done
 
 server_num=${#server_vars[@]}
-echo "There are ${server_num} backup servers."
+#echo "There are ${server_num} backup servers."
 
 
 
@@ -381,7 +381,7 @@ else
   echo "contianer nginx seems not up yet!"
 fi
 
-echo " now prepare bk_server credentials"
+echo "now prepare bk_server credentials"
 for server in "${server_vars[@]}"
 do
   IFS=',' read -r bk_server_ip bk_server_port bk_server_user bk_server_password <<< "$server"
@@ -389,7 +389,7 @@ do
 #  echo "bk_server_port: $bk_server_port"
 #  echo "bk_server_user: $bk_server_user"
 #  echo "bk_server_password: $bk_server_password"
-  echo "now transfer backup tarball to bk_server1"
+  echo "now transfer backup tarball to ${bk_server_ip}"
   echo "transfer backup tarball to $bk_server_ip <br />"  >> $MESSAGE
 
   if [[ "$bk_server_port" == "" ]]; then
