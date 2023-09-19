@@ -272,7 +272,10 @@ else
 fi
 
 echo "backup portainer configs which is a tar ball, not include volumes <br />"  >> $MESSAGE
-curl -s --connect-timeout 3600 -X POST -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' "${PORTAINER_URL}/api/backup" > ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/portainer-backup.tar.gz
+echo "now backup portainer"
+#curl -s --connect-timeout 3600 -X POST "${PORTAINER_URL}/api/backup" -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' --data "{\"password\":\"${PORTAINER_PASSWORD}\"}" > ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/portainer-backup_${DATE}.tar.gz.encrypted
+curl -s --connect-timeout 3600 -X POST "${PORTAINER_URL}/api/backup" -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' --data "{\"password\":\"${PORTAINER_PASSWORD}\"}" > ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/portainer-backup_${DATE}.tar.gz.encrypted
+echo "end portainer backup"
 echo "backup volumes <br />" >> $MESSAGE
 #use rsync to sync volumes into the backup folder and then tarball it as a backup
 rsync -az --delete --exclude={'backingFsBlockDev','metadata.db','portainer_data/*'} /var/lib/docker/volumes ${BK_PATH}/backups/docker_volumes
