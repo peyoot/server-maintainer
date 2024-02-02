@@ -270,7 +270,7 @@ if [[ ! "${stack_arr}" == "" ]]; then
 else
   echo "no runing stacks <br />" >> $MESSAGE
 fi
-sleep 10
+sleep 30
 #echo "check running solo containers"
 running_containers=($(curl -s --connect-timeout 300 -X GET "${PORTAINER_URL}/api/endpoints/${local_endpoint}/docker/containers/json" -H "X-API-KEY:${PORTAINER_API_KEY}" | jq '.[]|select(.Names!=["/portainer"])' | jq -r '.Id'))
 echo "Running solo container ID list: ${running_containers} <br />" >> $MESSAGE
@@ -282,6 +282,7 @@ if [[ ! "${running_containers}" == "" ]]; then
 else
   echo "no runing solo containers <br />" >> $MESSAGE
 fi
+sleep 15
 
 echo "backup portainer configs which is a tar ball, not include volumes <br />"  >> $MESSAGE
 echo "now backup portainer"
