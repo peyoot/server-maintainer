@@ -28,6 +28,18 @@ else
   exit
 fi
 
+if [ -x "$(command -v docker-compose)" ]; then
+#  echo "SUCCESS: docker-compose (v1) is installed."
+  COMPOSE_COMMAND = "docker-compose"
+elif $(docker compose &>/dev/null) && [ $? -eq 0 ]; then
+#  echo "SUCCESS: docker compose (v2) is installed."
+  COMPOSE_COMMAND = "docker compose"
+else
+    echo "ERROR: neither \"docker-compose\" nor \"docker compose\" appear to be installed."
+    exit 1
+fi
+
+
 if [ ! -d /etc/server-maintainer ]; then
   eval ${PACKAGE_UPDATE}
 fi
@@ -293,13 +305,13 @@ if [[ ! ${variables[@]} =~ "SYNC_SERVER_IP" ]] || [[ ! ${variables[@]} =~ "SYNC_
   echo "no sync server of portainer available, backup finished <br />" >> $MESSAGE 
 else
   echo "sync portainer server now! <br /> " >> $MESSAGE
-  docker-compose -f "${PORTAINER_PATH}/docker-compose.yml" down
-  sshpass -p ${SYNC_SERVER_PASSWORD} ssh -p${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no ${SYNC_SERVER_USER}@${SYNC_SERVER_IP} 'if [ ! -d "/home/${SYNC_SERVER_USER}/docker" ] ; then mkdir -p docker ; else docker-compose -f "/home/${SNYC_SERVER_USER}/docker/portainer/docker-compose.yml" down ; fi'
+  ${COMPOSE_COMMAND} -f "${PORTAINER_PATH}/docker-compose.yml" down
+  sshpass -p ${SYNC_SERVER_PASSWORD} ssh -p${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no ${SYNC_SERVER_USER}@${SYNC_SERVER_IP} 'if [ ! -d "/home/${SYNC_SERVER_USER}/docker" ] ; then mkdir -p docker ; else ${COMPOSE_COMMAND} -f "/home/${SNYC_SERVER_USER}/docker/portainer/docker-compose.yml" down ; fi'
   TEMP_SUDO_RSYNC='echo -n "#!" > mypass ; echo "/bin/bash" >> mypass ; echo "echo \"'${SYNC_SERVER_PASSWORD}'\"" >> mypass ; chmod +x mypass ; SUDO_ASKPASS=./mypass sudo -A rsync'
   sshpass -p ${SYNC_SERVER_PASSWORD} rsync -az ${PORTAINER_PATH} "-e ssh -p ${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no" --rsync-path="${TEMP_SUDO_RSYNC}"  ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/home/${SYNC_SERVER_USER}/docker
   sshpass -p ${SYNC_SERVER_PASSWORD} rsync -az /var/lib/docker/volumes "-e ssh -p ${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no" --rsync-path="${TEMP_SUDO_RSYNC}"  ${SYNC_SERVER_USER}@${SYNC_SERVER_IP}:/var/lib/docker/
   sshpass -p ${SYNC_SERVER_PASSWORD} ssh -p${SYNC_SERVER_SSHPORT} -o StrictHostKeyChecking=no ${SYNC_SERVER_USER}@${SYNC_SERVER_IP} 'rm -rf mypass ; if [ -f "/home/${SYNC_SERVER_USER}/docker/portainer/docker-compose.yml" ] ; then docker-compose -f  "/home/${SYNC_SERVER_USER}/docker/portainer/docker-compose.yml" up ; fi'
-  docker-compose -f "${PORTAINER_PATH}/docker-compose.yml" up -d
+  ${COMPOSE_COMMAND} -f "${PORTAINER_PATH}/docker-compose.yml" up -d
 fi
 
 ####End of Block4####
