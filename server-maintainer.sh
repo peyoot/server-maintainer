@@ -30,10 +30,10 @@ fi
 
 if [ -x "$(command -v docker-compose)" ]; then
 #  echo "SUCCESS: docker-compose (v1) is installed."
-  COMPOSE_COMMAND = "docker-compose"
+  COMPOSE_COMMAND="docker-compose"
 elif $(docker compose &>/dev/null) && [ $? -eq 0 ]; then
 #  echo "SUCCESS: docker compose (v2) is installed."
-  COMPOSE_COMMAND = "docker compose"
+  COMPOSE_COMMAND="docker compose"
 else
     echo "ERROR: neither \"docker-compose\" nor \"docker compose\" appear to be installed."
     exit 1
