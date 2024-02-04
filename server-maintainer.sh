@@ -44,7 +44,7 @@ if [ ! -d /etc/server-maintainer ]; then
   eval ${PACKAGE_UPDATE}
 fi
 
-additional_packages=("curl" "sshpass" "jq")
+additional_packages=("curl" "sshpass" "jq" "rsync")
 for pack_str in ${additional_packages[@]}; do
   if [ ! -e /usr/bin/${pack_str} ]; then
     PACKAGE_INSTALL=${PACKAGE_INSTALL_BASE}${pack_str}
