@@ -414,7 +414,7 @@ do
   fi
 
 
-  sshpass -p ${bk_server_password} ssh -p ${bk_server_port} -o StrictHostKeyChecking=no ${bk_server_user}@${bk_server_ip} "mkdir -p remote-bk/${THIS_HOSTNAME}"
+  sshpass -p ${bk_server_password} ssh -p ${bk_server_port} -o StrictHostKeyChecking=no ${bk_server_user}@${bk_server_ip} "mkdir -p remote-bk/${THIS_HOSTNAME}/server-maintainer"
   sshpass -p ${bk_server_password} rsync -az ${BK_PATH}/backups "-e ssh -p ${bk_server_port} -o StrictHostKeyChecking=no" ${bk_server_user}@${bk_server_ip}:/home/${bk_server_user}/remote-bk/${THIS_HOSTNAME}/server-maintainer
 
   sshpass -p ${bk_server_password} ssh -p ${bk_server_port} -o StrictHostKeyChecking=no ${bk_server_user}@${bk_server_ip} "find remote-bk/${THIS_HOSTNAME}/server-maintainer/backups -maxdepth 1 -type d -mtime +32 -name \"${THIS_HOSTNAME}*\" | xargs rm -rf"
