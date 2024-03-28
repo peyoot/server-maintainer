@@ -12,7 +12,7 @@ cp server-maintainer.service /etc/systemd/system/
 cp server-maintainer.timer /etc/systemd/system/
 echo 'server-maintainer service and timer installed'
 if [[ ! -f ${FILENAME} ]]; then
-  echo 'you need define your own configuration file first. Please take /etc/server-maintainer/server-maintainer.sample as reference and rename it here: /etc/server-maintainer.conf'
+  echo 'you need define your own configuration file first. Please take /etc/server-maintainer/server-maintainer.sample as reference and rename it server-maintainer.conf'
   echo 'if you prefer to run it manually as a sript tool. you can put the configuration file in the same path of script and change the name as .env'
   echo 'installation finished.'
 fi
