@@ -60,17 +60,12 @@ if [[ ! -e /usr/local/bin/sendEmail.pl ]]; then
   ln -s /usr/local/bin/sendEmail.pl /usr/local/bin/sendemail
 fi
 
-# check if it's the first week of the month 
-WEEK=$(date '+%V')
-if [ $[${WEEK}%4] = 0 ]; then
-  firstweek=true
-else
-  firstweek=false
-fi
+# check if it's the first day of the month 
+dayofmonth=$(date '+%d')
 
 # check if it's sunday
-DAYOFWEEK=$(date '+%w')
-if [ ${WEEK} = 0 ]; then
+day_of_week=$(date '+%w')
+if [[ ${day_of_week} -eq 0 ]]; then
   issunday=true
 elsey
   issunday=false
@@ -440,7 +435,7 @@ done
 #check redumdant backup,every sunday keep a weekly backup and every month move weekly backup to monthly. clean 90day+ data
 echo "monthly backup and clean redumdant files <br />" >> $MESSAGE
 if ($issunday); then
-  if ($firstweek); then
+  if [[ ${day_of_month} -eq 1 ]]; then
     echo "first week flag toggled"
     mv ${BK_PATH}/backups/weekly/* ${BK_PATH}/backups/monthly/
   fi
