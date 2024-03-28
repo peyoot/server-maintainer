@@ -68,6 +68,14 @@ else
   firstweek=false
 fi
 
+# check if it's sunday
+DAYOFWEEK=$(date '+%w')
+if [ ${WEEK} = 0 ]; then
+  issunday=true
+elsey
+  issunday=false
+fi
+
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 ####End of BLOCK1####
 
@@ -233,6 +241,13 @@ fi
 if [[ ! -d "${BK_PATH}/backups" ]] && (${MANUALLY_RUN}); then
   install -o ${USER} -g ${USER} -d ${BK_PATH}/backups
 fi
+
+if [[ ! -d "${BK_PATH}/backups/weekly" ]] && (${MANUALLY_RUN}); then
+  install -o ${USER} -g ${USER} -d ${BK_PATH}/backups/monthly
+else
+  mkdir -p ${BK_PATH}/backups/weekly
+fi
+
 if [[ ! -d "${BK_PATH}/backups/monthly" ]] && (${MANUALLY_RUN}); then
   install -o ${USER} -g ${USER} -d ${BK_PATH}/backups/monthly
 else
@@ -422,14 +437,17 @@ do
 done
 
 
-#check redumdant backup
+#check redumdant backup,every sunday keep a weekly backup and every month move weekly backup to monthly. clean 90day+ data
 echo "monthly backup and clean redumdant files <br />" >> $MESSAGE
-if ($firstweek); then
-  echo "first week flag toggled"
-  cp -r ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE} ${BK_PATH}/backups/monthly/
+if ($issunday); then
+  if ($firstweek); then
+    echo "first week flag toggled"
+    mv ${BK_PATH}/backups/weekly/* ${BK_PATH}/backups/monthly/
+  fi
+  cp -r ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE} ${BK_PATH}/backups/weekly/
 fi
-find ${BK_PATH}/backups -maxdepth 1 -type d -mtime +32 -name "${THIS_HOSTNAME}*" | xargs rm -rf
-find ${BK_PATH}/backups/monthly -maxdepth 1 -type d -mtime +180 -name "${THIS_HOSTNAME}*" | xargs rm -rf
+find ${BK_PATH}/backups -maxdepth 1 -type d -mtime +8 -name "${THIS_HOSTNAME}*" | xargs rm -rf
+find ${BK_PATH}/backups/monthly -maxdepth 1 -type d -mtime +90 -name "${THIS_HOSTNAME}*" | xargs rm -rf
 
 
 ####End of Block5####
