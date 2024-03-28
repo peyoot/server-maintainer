@@ -260,9 +260,17 @@ else
   mkdir -p ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/dnmp_configs
 fi
 
-
-
 ####End of BLOCK3####
+
+if (${MANUALLY_RUN}); then
+  cp .env ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/
+else
+  cp /etc/server-maintainer/* ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/
+fi
+
+
+
+
 
 ####BLOCK4: portainer backup####
 #get local environment
