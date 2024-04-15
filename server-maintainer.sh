@@ -65,7 +65,7 @@ dayofmonth=$(date '+%d')
 
 # check if it's sunday
 day_of_week=$(date '+%w')
-if [[ ${day_of_week} -eq 0 ]]; then
+if [[ ${day_of_week} == "0" ]]; then
   issunday=true
 elsey
   issunday=false
@@ -443,14 +443,15 @@ done
 #check redumdant backup,every sunday keep a weekly backup and every month move weekly backup to monthly. clean 90day+ data
 echo "monthly backup and clean redumdant files <br />" >> $MESSAGE
 if ($issunday); then
-  if [[ ${day_of_month} -eq 1 ]]; then
+  if [[ ${day_of_month} == "1" ]]; then
     echo "first week flag toggled"
-    mv ${BK_PATH}/backups/weekly/* ${BK_PATH}/backups/monthly/
+    cp -r ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE} ${BK_PATH}/backups/monthly/
   fi
   cp -r ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE} ${BK_PATH}/backups/weekly/
 fi
 find ${BK_PATH}/backups -maxdepth 1 -type d -mtime +8 -name "${THIS_HOSTNAME}*" | xargs rm -rf
-find ${BK_PATH}/backups/monthly -maxdepth 1 -type d -mtime +90 -name "${THIS_HOSTNAME}*" | xargs rm -rf
+find ${BK_PATH}/backups/weekly -maxdepth 1 -type d -mtime +31 -name "${THIS_HOSTNAME}*" | xargs rm -rf
+find ${BK_PATH}/backups/monthly -maxdepth 1 -type d -mtime +180 -name "${THIS_HOSTNAME}*" | xargs rm -rf
 
 
 ####End of Block5####
