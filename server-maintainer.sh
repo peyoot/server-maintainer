@@ -7,7 +7,7 @@ LOGFILE="/var/log/server_maintainer.log"
 MANUALLY_RUN=false
 has_root() {
     if [[ $EUID -ne 0 ]]; then
-        echo "you need root privilege to run the script" | tee ${LOGFILE}
+        echo "you need root privilege to run the script" | tee >(ts >> ${LOGFILE})
 	exit 1
     fi
 }
@@ -24,7 +24,7 @@ elif [[ "$OS_RELEASE" =~ "openEuler" ]] || [[ "$OS_RELEASE" =~ "Centos" ]]; then
   PACKAGE_UPDATE="dnf -q check-update"
   PACKAGE_INSTALL_BASE="dnf -q -y install "
 else
-  echo "This distribution haven't been test yet" | tee ${LOGFILE}
+  echo "This distribution haven't been test yet" | tee >(ts >> ${LOGFILE})
   exit
 fi
 
@@ -44,7 +44,7 @@ if [ ! -d /etc/server-maintainer ]; then
   eval ${PACKAGE_UPDATE}
 fi
 
-additional_packages=("curl" "sshpass" "jq" "rsync")
+additional_packages=("curl" "ts" "sshpass" "jq" "rsync")
 for pack_str in ${additional_packages[@]}; do
   if [ ! -e /usr/bin/${pack_str} ]; then
     PACKAGE_INSTALL=${PACKAGE_INSTALL_BASE}${pack_str}
@@ -65,6 +65,7 @@ dayofmonth=$(date '+%d')
 
 # check if it's sunday
 day_of_week=$(date '+%w')
+echo "day_of_week is $day_of_week“ |tee >(ts >> ${LOGFILE})
 if [[ ${day_of_week} == "0" ]]; then
   issunday=true
 elsey
@@ -84,7 +85,7 @@ if [[ ! -f ${FILENAME} ]]; then
   echo "Couldn't find the server-maintainer.conf"
   echo "now try .env in script path"
   if [[ ! -f .env ]]; then
-    echo "couldn't find env file in current folder as well,abort!" | tee ${LOGFILE}
+    echo "couldn't find env file in current folder as well,abort!" | tee >(ts >> ${LOGFILE})
     exit
   else
     MANUALLY_RUN=true
@@ -99,7 +100,7 @@ fi
 mapfile -t variables < <(grep -vE '^#|^$' ${FILENAME})
 arr_length=${#variables[@]}
 if ((arr_length < 3)); then
-  echo "bad environment file.Abort" | tee ${LOGFILE}
+  echo "bad environment file.Abort" | tee >(ts >> ${LOGFILE})
   exit
 fi
 
@@ -444,9 +445,10 @@ done
 echo "monthly backup and clean redumdant files <br />" >> $MESSAGE
 if ($issunday); then
   if [[ ${day_of_month} == "1" ]]; then
-    echo "first week flag toggled"
+    echo "first month flag toggled" | tee >(ts >> ${LOGFILE})
     cp -r ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE} ${BK_PATH}/backups/monthly/
   fi
+  echo "issunday value is $issunday" | tee >(ts >> ${LOGFILE}) 
   cp -r ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE} ${BK_PATH}/backups/weekly/
 fi
 find ${BK_PATH}/backups -maxdepth 1 -type d -mtime +8 -name "${THIS_HOSTNAME}*" | xargs rm -rf
@@ -465,7 +467,7 @@ find ${BK_PATH}/backups/monthly -maxdepth 1 -type d -mtime +180 -name "${THIS_HO
 sendemail -f ${SMTP_ACCOUNT} -t ${EMAIL_TO} -s ${SMTP_SERVER} -u ${SUBJECT} -o tls=no -o message-content-type=html -o message-charset=utf8 -o message-file=${MESSAGE} -xu ${SMTP_ACCOUNT} -xp ${SMTP_PASSWORD}
 rm /tmp/Mail.out
 
-echo "Server Maintainer script have finished its job on ${DATE}!" | tee ${LOGFILE}
+echo "Server Maintainer script have finished its job on ${DATE}!" | tee >(ts >> ${LOGFILE})
 
 LOGSIZE=`ls -l ${LOGFILE} | awk '{ print $5 }'`
 
