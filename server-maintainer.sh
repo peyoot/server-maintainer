@@ -44,13 +44,20 @@ if [ ! -d /etc/server-maintainer ]; then
   eval ${PACKAGE_UPDATE}
 fi
 
-additional_packages=("curl" "ts" "sshpass" "jq" "rsync")
+additional_packages=("curl" "sshpass" "jq" "rsync")
 for pack_str in ${additional_packages[@]}; do
   if [ ! -e /usr/bin/${pack_str} ]; then
     PACKAGE_INSTALL=${PACKAGE_INSTALL_BASE}${pack_str}
     eval ${PACKAGE_INSTALL}
   fi
 done
+
+#add ts package
+if [ ! -e /usr/bin/ts ]; then
+   pack_str="moreutils"
+   PACKAGE_INSTALL=${PACKAGE_INSTALL_BASE}${pack_str}
+   eval ${PACKAGE_INSTALL}
+fi
 
 #install packages like sendemail which couldn't be installed via dnf
 if [[ ! -e /usr/local/bin/sendEmail.pl ]]; then
@@ -391,10 +398,7 @@ if [ $? -eq 0 ]; then
       mkdir -p ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/${site}
     fi
 
-#    docker exec -t -e site=$site -e hostdate=$DATE nginx sh -c "if [ ! -d /dump ] ; then mkdir -p /dump ; fi;  tar -zcf /dump/${site}-${hostdate}.tgz -C /www/ ${site}"
-#    docker cp nginx:/dump/${site}-${DATE}.tgz ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE}/${site}/ 
-    if [[ $db_host == mysql* ]]
-    then
+    if [[ $db_host == mysql* ]]; then
       docker ps | grep ${db_host} &> /dev/null
       if [ $? -eq 0 ]; then
         docker exec -e site_db=$site_db -e db_user=$db_user -e db_password=$db_password -e hostdate=${DATE} ${db_host} bash -c 'if [ ! -d "/dump" ]; then mkdir /dump; fi;  mysqldump -h 127.0.0.1 -u ${db_user} -p${db_password} ${site_db} > /dump/${site_db}_${hostdate}.sql '
