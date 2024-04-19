@@ -72,7 +72,7 @@ dayofmonth=$(date '+%d')
 
 # check if it's sunday
 day_of_week=$(date '+%w')
-echo "day_of_week is $day_of_week“ |tee >(ts >> ${LOGFILE})
+echo "day_of_week is $day_of_week" |tee >(ts >> ${LOGFILE})
 if [[ ${day_of_week} == "0" ]]; then
   issunday=true
 elsey
