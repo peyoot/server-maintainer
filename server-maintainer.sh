@@ -74,9 +74,9 @@ dayofmonth=$(date '+%d')
 day_of_week=$(date '+%w')
 echo "day_of_week is $day_of_week" |tee >(ts >> ${LOGFILE})
 if [[ ${day_of_week} == "0" ]]; then
-  issunday=true
+  issunday="true"
 elsey
-  issunday=false
+  issunday="false"
 fi
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
@@ -446,8 +446,8 @@ done
 
 
 #check redumdant backup,every sunday keep a weekly backup and every month move weekly backup to monthly. clean 90day+ data
-echo "monthly backup and clean redumdant files <br />" >> $MESSAGE
-if ($issunday); then
+echo "Now perform weekly and monthly backup and clean redumdant files <br />" >> $MESSAGE
+if [[ $issunday == "true" ]]; then
   if [[ ${day_of_month} == "1" ]]; then
     echo "first month flag toggled" | tee >(ts >> ${LOGFILE})
     cp -r ${BK_PATH}/backups/${THIS_HOSTNAME}_${DATE} ${BK_PATH}/backups/monthly/
