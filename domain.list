@@ -1,0 +1,2 @@
+mydomain.com ubuntu@192.168.3.25 /home/ubuntu/certs
+domain.net ubuntu@192.168.3.16:1022 /home/ubuntu/certs
